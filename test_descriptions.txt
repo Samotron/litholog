@@ -1,0 +1,12 @@
+Firm CLAY
+Dense SAND
+Stiff slightly sandy CLAY
+Very loose silty SAND
+Medium dense gravelly SAND
+Soft to firm clayey SILT
+Strong LIMESTONE
+Moderately strong slightly weathered SANDSTONE
+Weak highly weathered jointed MUDSTONE
+Very strong fresh GRANITE
+Extremely strong BASALT
+Moderately weak completely weathered SHALE

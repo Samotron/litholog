@@ -1,0 +1,177 @@
+name: Go Library Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-library:
+    name: Build C Library
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Zig
+      uses: goto-bus-stop/setup-zig@v2
+      with:
+        version: 0.12.0
+
+    - name: Build C library
+      run: |
+        zig build lib
+
+    - name: Upload C library artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: c-library
+        path: |
+          zig-out/lib/liblitholog.so
+          zig-out/include/litholog.h
+
+  test-go-bindings:
+    name: Test Go Bindings
+    runs-on: ${{ matrix.os }}
+    needs: build-library
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: ['1.21', '1.22']
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Setup Zig
+      uses: goto-bus-stop/setup-zig@v2
+      with:
+        version: 0.12.0
+
+    - name: Build C library
+      run: |
+        zig build lib
+
+    - name: Copy library files to Go binding directory
+      shell: bash
+      run: |
+        cp zig-out/lib/liblitholog* bindings/go/ || true
+        cp zig-out/include/litholog.h bindings/go/
+
+    - name: Sync Go version with Zig
+      working-directory: bindings/go
+      run: |
+        ./sync_version.sh
+
+    - name: Test Go bindings compilation
+      working-directory: bindings/go
+      run: |
+        go mod tidy
+        go build -v ./...
+
+    - name: Run Go tests
+      working-directory: bindings/go
+      run: |
+        go test -v ./...
+
+  tag-go-module:
+    name: Tag Go Module
+    runs-on: ubuntu-latest
+    needs: test-go-bindings
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Extract version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Create Go module tag
+      run: |
+        # Create a tag specifically for the Go module
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Tag the Go bindings specifically
+        git tag bindings/go/${{ steps.version.outputs.VERSION }}
+        git push origin bindings/go/${{ steps.version.outputs.VERSION }}
+
+  create-go-release:
+    name: Create Go Module Release Notes
+    runs-on: ubuntu-latest
+    needs: tag-go-module
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Extract version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Create Go module release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: bindings/go/${{ steps.version.outputs.VERSION }}
+        release_name: Go Bindings ${{ steps.version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+        body: |
+          ## Litholog Go Bindings ${{ steps.version.outputs.VERSION }}
+          
+          Go language bindings for the litholog geological description parser.
+          
+          ### Installation
+          
+          ```bash
+          go get github.com/${{ github.repository }}/bindings/go@${{ steps.version.outputs.VERSION }}
+          ```
+          
+          ### Usage
+          
+          ```go
+          package main
+          
+          import (
+              "fmt"
+              "log"
+              "github.com/${{ github.repository }}/bindings/go"
+          )
+          
+          func main() {
+              desc, err := litholog.Parse("Firm CLAY")
+              if err != nil {
+                  log.Fatal(err)
+              }
+              
+              if desc != nil {
+                  fmt.Printf("Material: %s\n", desc.MaterialType.String())
+                  if desc.Consistency != nil {
+                      fmt.Printf("Consistency: %s\n", desc.Consistency.String())
+                  }
+              }
+          }
+          ```
+          
+          ### Requirements
+          
+          - Go 1.21 or later
+          - CGO enabled
+          - C compiler (gcc, clang, or MSVC)
+          
+          ### Documentation
+          
+          See the [Go bindings documentation](https://pkg.go.dev/github.com/${{ github.repository }}/bindings/go) for detailed API reference.
+          
+          ### Changes
+          
+          This release corresponds to litholog core version ${{ steps.version.outputs.VERSION }}.
+          See the main [changelog](../../CHANGELOG.md) for details.
