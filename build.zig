@@ -42,6 +42,16 @@ pub fn build(b: *std.Build) void {
     const lib_step = b.step("lib", "Build the shared library");
     lib_step.dependOn(&lib.step);
 
+    // Create a symlink/copy for easier access by bindings
+    const lib_copy_step = b.step("lib-copy", "Copy library for bindings");
+    const install_step = b.getInstallStep();
+    lib_copy_step.dependOn(install_step);
+
+    // Add run step to create symlink after build
+    const symlink_cmd = b.addSystemCommand(&[_][]const u8{ "sh", "-c", "cd zig-out/lib && ln -sf liblitholog.so.* liblitholog.so 2>/dev/null || cp liblitholog.so.* liblitholog.so 2>/dev/null || true" });
+    symlink_cmd.step.dependOn(install_step);
+    lib_step.dependOn(&symlink_cmd.step);
+
     // Version extraction step for bindings
     const version_step = b.step("version", "Extract version for bindings");
     const version_cmd = b.addWriteFile("VERSION", version.VERSION_STRING);

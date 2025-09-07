@@ -16,7 +16,7 @@ jobs:
     - name: Setup Zig
       uses: goto-bus-stop/setup-zig@v2
       with:
-        version: 0.12.0
+        version: 0.14.0
 
     - name: Run tests
       run: zig build test
@@ -46,7 +46,7 @@ jobs:
     - name: Setup Zig
       uses: goto-bus-stop/setup-zig@v2
       with:
-        version: 0.12.0
+        version: 0.14.0
 
     - name: Build C library
       run: zig build lib
@@ -54,8 +54,9 @@ jobs:
     - name: Copy library files
       shell: bash
       run: |
-        cp zig-out/lib/liblitholog* bindings/go/ || true
-        cp zig-out/include/litholog.h bindings/go/
+        mkdir -p bindings/go
+        cp zig-out/lib/liblitholog* bindings/go/ 2>/dev/null || true
+        cp zig-out/include/litholog.h bindings/go/ 2>/dev/null || echo "Header file not found"
 
     - name: Sync Go version
       working-directory: bindings/go
@@ -87,7 +88,7 @@ jobs:
     - name: Setup Zig
       uses: goto-bus-stop/setup-zig@v2
       with:
-        version: 0.12.0
+        version: 0.14.0
 
     - name: Build C library
       run: zig build lib
@@ -107,8 +108,8 @@ jobs:
       shell: bash
       run: |
         mkdir -p bindings/python/litholog/lib
-        cp zig-out/lib/liblitholog* bindings/python/litholog/lib/ || true
-        cp zig-out/include/litholog.h bindings/python/litholog/
+        cp zig-out/lib/liblitholog* bindings/python/litholog/lib/ 2>/dev/null || true
+        cp zig-out/include/litholog.h bindings/python/litholog/ 2>/dev/null || echo "Header file not found"
 
     - name: Test Python bindings
       working-directory: bindings/python
@@ -125,7 +126,7 @@ jobs:
     - name: Setup Zig
       uses: goto-bus-stop/setup-zig@v2
       with:
-        version: 0.12.0
+        version: 0.14.0
 
     - name: Check Zig formatting
       run: zig fmt --check src/

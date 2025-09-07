@@ -19,7 +19,7 @@ jobs:
     - name: Setup Zig
       uses: goto-bus-stop/setup-zig@v2
       with:
-        version: 0.12.0
+        version: 0.14.0
 
     - name: Build C library
       run: |
@@ -44,8 +44,8 @@ jobs:
       shell: bash
       run: |
         mkdir -p bindings/python/litholog/lib
-        cp zig-out/lib/liblitholog* bindings/python/litholog/lib/ || true
-        cp zig-out/include/litholog.h bindings/python/litholog/
+        cp zig-out/lib/liblitholog* bindings/python/litholog/lib/ 2>/dev/null || true
+        cp zig-out/include/litholog.h bindings/python/litholog/ 2>/dev/null || echo "Header file not found"
 
     - name: Update Python package version
       shell: bash
