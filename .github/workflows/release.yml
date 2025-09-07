@@ -1,4 +1,4 @@
-name: Release CLI
+name: Release
 
 on:
   push:
@@ -7,28 +7,38 @@ on:
 
 jobs:
   build:
-    name: Build for ${{ matrix.os }}
+    name: Build for ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
+          # Linux
           - os: ubuntu-latest
+            platform: linux-x86_64
             target: x86_64-linux
             artifact_name: litholog
             asset_name: litholog-linux-x86_64
           - os: ubuntu-latest
+            platform: linux-aarch64
             target: aarch64-linux
             artifact_name: litholog
             asset_name: litholog-linux-aarch64
+          
+          # Windows
           - os: windows-latest
+            platform: windows-x86_64
             target: x86_64-windows
             artifact_name: litholog.exe
             asset_name: litholog-windows-x86_64.exe
+          
+          # macOS
           - os: macos-latest
+            platform: macos-x86_64
             target: x86_64-macos
             artifact_name: litholog
             asset_name: litholog-macos-x86_64
           - os: macos-latest
+            platform: macos-aarch64
             target: aarch64-macos
             artifact_name: litholog
             asset_name: litholog-macos-aarch64
@@ -41,17 +51,21 @@ jobs:
       with:
         version: 0.14.0
 
-    - name: Extract version from Zig source
+    - name: Extract version from tag
       id: version
+      shell: bash
       run: |
-        VERSION=$(grep 'VERSION_STRING' src/version.zig | sed 's/.*"\([^"]*\)".*/\1/')
+        VERSION=${GITHUB_REF#refs/tags/v}
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "Extracted version: $VERSION"
 
-    - name: Validate version matches tag
+    - name: Validate version matches Zig source
+      shell: bash
       run: |
-        TAG_VERSION=${GITHUB_REF#refs/tags/v}
-        ZIG_VERSION=${{ steps.version.outputs.VERSION }}
+        ZIG_VERSION=$(grep 'VERSION_STRING' src/version.zig | sed 's/.*"\([^"]*\)".*/\1/')
+        TAG_VERSION=${{ steps.version.outputs.VERSION }}
+        echo "Tag version: $TAG_VERSION"
+        echo "Zig version: $ZIG_VERSION"
         if [ "$TAG_VERSION" != "$ZIG_VERSION" ]; then
           echo "❌ Tag version ($TAG_VERSION) does not match Zig version ($ZIG_VERSION)"
           echo "Please update src/version.zig to match the tag or use the correct tag"
@@ -73,6 +87,7 @@ jobs:
       with:
         name: ${{ matrix.asset_name }}
         path: ${{ matrix.asset_name }}
+        retention-days: 5
 
   create-release:
     name: Create Release
@@ -82,6 +97,12 @@ jobs:
       contents: write
     steps:
     - uses: actions/checkout@v4
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Download all artifacts
       uses: actions/download-artifact@v4
@@ -98,38 +119,58 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        release_name: Litholog ${{ steps.version.outputs.VERSION }}
         draft: false
         prerelease: false
         body: |
-          ## Litholog ${{ github.ref_name }}
+          # Litholog ${{ steps.version.outputs.VERSION }}
           
-          Geological description parser CLI tool.
+          A geological description parser CLI tool following BS5930 standards.
           
-          ### Changes
-          See the [changelog](CHANGELOG.md) for details.
+          ## Installation
           
-          ### Installation
-          
-          #### Linux/macOS
+          ### Linux/macOS
           ```bash
-          curl -L https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/litholog-linux-x86_64 -o litholog
+          # Download the appropriate binary for your platform
+          curl -L https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/litholog-linux-x86_64 -o litholog
           chmod +x litholog
           sudo mv litholog /usr/local/bin/
           ```
           
-          #### Windows
+          ### Windows
           Download the Windows executable and add it to your PATH.
           
-          ### Usage
+          ## Usage
+          
           ```bash
+          # Parse a geological description
           litholog "Firm CLAY"
+          
+          # Interactive mode
+          litholog
+          
+          # Show help
+          litholog --help
           ```
           
-          ### Language Bindings
+          ## Features
           
-          - **Go**: `go get github.com/${{ github.repository }}/bindings/go@${{ github.ref_name }}`
-          - **Python**: `pip install litholog`
+          - Parse geological descriptions according to BS5930 standards
+          - Extract material types, consistency, density, and other properties
+          - Support for both soil and rock descriptions
+          - Interactive TUI mode for exploring geological data
+          - JSON output for integration with other tools
+          
+          ## Platform Support
+          
+          This release includes binaries for:
+          - Linux (x86_64, aarch64)
+          - Windows (x86_64)
+          - macOS (x86_64, aarch64/Apple Silicon)
+          
+          ## What's Changed
+          
+          See the commit history for detailed changes in this release.
 
     - name: Upload Linux x86_64
       uses: actions/upload-release-asset@v1

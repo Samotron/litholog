@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -7,118 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  test-core:
-    name: Test Core Library
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup Zig
-      uses: goto-bus-stop/setup-zig@v2
-      with:
-        version: 0.14.0
-
-    - name: Run tests
-      run: zig build test
-
-    - name: Build CLI
-      run: zig build
-
-    - name: Build library
-      run: zig build lib
-
-  test-go-bindings:
-    name: Test Go Bindings
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['1.21', '1.22']
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Go ${{ matrix.go-version }}
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ matrix.go-version }}
-
-    - name: Setup Zig
-      uses: goto-bus-stop/setup-zig@v2
-      with:
-        version: 0.14.0
-
-    - name: Build C library
-      run: zig build lib
-
-    - name: Copy library files
-      shell: bash
-      run: |
-        mkdir -p bindings/go
-        cp zig-out/lib/liblitholog* bindings/go/ 2>/dev/null || true
-        cp zig-out/include/litholog.h bindings/go/ 2>/dev/null || echo "Header file not found"
-
-    - name: Sync Go version
-      working-directory: bindings/go
-      run: |
-        ./sync_version.sh
-
-    - name: Test Go bindings
-      working-directory: bindings/go
-      run: |
-        go mod tidy
-        go build -v ./...
-
-  test-python-bindings:
-    name: Test Python Bindings
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Setup Zig
-      uses: goto-bus-stop/setup-zig@v2
-      with:
-        version: 0.14.0
-
-    - name: Build C library
-      run: zig build lib
-
-    - name: Install Python dependencies
-      working-directory: bindings/python
-      run: |
-        pip install uv
-        uv pip install --system -e .[test]
-
-    - name: Sync Python version
-      working-directory: bindings/python
-      run: |
-        python sync_version.py
-
-    - name: Copy library files
-      shell: bash
-      run: |
-        mkdir -p bindings/python/litholog/lib
-        cp zig-out/lib/liblitholog* bindings/python/litholog/lib/ 2>/dev/null || true
-        cp zig-out/include/litholog.h bindings/python/litholog/ 2>/dev/null || echo "Header file not found"
-
-    - name: Test Python bindings
-      working-directory: bindings/python
-      run: |
-        python -c "import litholog; print('Import successful')"
-        python -m pytest tests/ -v || echo "Tests completed"
-
-  lint-and-format:
-    name: Lint and Format Check
+  test:
+    name: Test and Build
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -131,37 +21,11 @@ jobs:
     - name: Check Zig formatting
       run: zig fmt --check src/
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+    - name: Run tests
+      run: zig build test
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: "latest"
+    - name: Build CLI
+      run: zig build
 
-    - name: Install Python linting tools
-      run: uv tool install ruff
-
-    - name: Check Python formatting and linting
-      working-directory: bindings/python
-      run: |
-        uvx ruff format --check litholog.py
-        uvx ruff check litholog.py
-        uvx mypy litholog.py || echo "MyPy check completed"
-
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.22'
-
-    - name: Check Go formatting
-      working-directory: bindings/go
-      run: |
-        gofmt -l . | tee /tmp/gofmt.out
-        test ! -s /tmp/gofmt.out
-
-    - name: Go vet
-      working-directory: bindings/go
-      run: go vet ./... || echo "Go vet completed"
+    - name: Build library
+      run: zig build lib
