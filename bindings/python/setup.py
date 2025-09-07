@@ -16,7 +16,7 @@ else:
 
 setup(
     name="litholog",
-    version="0.1.0",
+    version="0.0.1",
     author="Litholog Project",
     author_email="contact@example.com",  # Update with real email
     description="Python bindings for litholog geological description parser",

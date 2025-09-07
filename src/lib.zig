@@ -150,7 +150,7 @@ export fn litholog_description_to_json(description: ?*const CSoilDescription) ?[
         var zig_desc = SoilDescription{
             .raw_description = std.mem.span(desc.raw_description),
             .material_type = @enumFromInt(desc.material_type),
-            .confidence = desc.confidence,
+            .confidence = @floatCast(desc.confidence),
         };
 
         // Convert optional fields
@@ -201,37 +201,51 @@ export fn litholog_material_type_to_string(material_type: i32) [*:0]const u8 {
 
 export fn litholog_consistency_to_string(consistency: i32) [*:0]const u8 {
     const c: Consistency = @enumFromInt(consistency);
-    return c.toString().ptr;
+    const str = c.toString();
+    const z_str = allocator.dupeZ(u8, str) catch return "error";
+    return z_str.ptr;
 }
 
 export fn litholog_density_to_string(density: i32) [*:0]const u8 {
     const d: Density = @enumFromInt(density);
-    return d.toString().ptr;
+    const str = d.toString();
+    const z_str = allocator.dupeZ(u8, str) catch return "error";
+    return z_str.ptr;
 }
 
 export fn litholog_rock_strength_to_string(strength: i32) [*:0]const u8 {
     const rs: RockStrength = @enumFromInt(strength);
-    return rs.toString().ptr;
+    const str = rs.toString();
+    const z_str = allocator.dupeZ(u8, str) catch return "error";
+    return z_str.ptr;
 }
 
 export fn litholog_soil_type_to_string(soil_type: i32) [*:0]const u8 {
     const st: SoilType = @enumFromInt(soil_type);
-    return st.toString().ptr;
+    const str = st.toString();
+    const z_str = allocator.dupeZ(u8, str) catch return "error";
+    return z_str.ptr;
 }
 
 export fn litholog_rock_type_to_string(rock_type: i32) [*:0]const u8 {
     const rt: RockType = @enumFromInt(rock_type);
-    return rt.toString().ptr;
+    const str = rt.toString();
+    const z_str = allocator.dupeZ(u8, str) catch return "error";
+    return z_str.ptr;
 }
 
 export fn litholog_weathering_grade_to_string(grade: i32) [*:0]const u8 {
     const wg: WeatheringGrade = @enumFromInt(grade);
-    return wg.toString().ptr;
+    const str = wg.toString();
+    const z_str = allocator.dupeZ(u8, str) catch return "error";
+    return z_str.ptr;
 }
 
 export fn litholog_rock_structure_to_string(structure: i32) [*:0]const u8 {
     const rs: RockStructure = @enumFromInt(structure);
-    return rs.toString().ptr;
+    const str = rs.toString();
+    const z_str = allocator.dupeZ(u8, str) catch return "error";
+    return z_str.ptr;
 }
 
 export fn litholog_strength_parameter_type_to_string(param_type: i32) [*:0]const u8 {
