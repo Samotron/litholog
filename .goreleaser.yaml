@@ -1,0 +1,94 @@
+version: 2
+
+project_name: litholog
+
+builds:
+  - id: litholog
+    builder: zig
+    binary: litholog
+    targets:
+      - x86_64-linux
+      - aarch64-linux  
+      - x86_64-windows
+      - x86_64-macos
+      - aarch64-macos
+    flags:
+      - -Doptimize=ReleaseFast
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - id: litholog
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: 'checksums.txt'
+
+release:
+  name_template: "Litholog {{ .Version }}"
+  draft: false
+  prerelease: auto
+  header: |
+    # Litholog {{ .Version }}
+    
+    A geological description parser CLI tool following BS5930 standards.
+    
+    ## Installation
+    
+    ### Linux/macOS
+    ```bash
+    # Download the appropriate binary for your platform
+    curl -L https://github.com/{{ .Env.GITHUB_REPOSITORY }}/releases/download/v{{ .Version }}/litholog-{{ .Version }}-linux-amd64.tar.gz | tar xz
+    chmod +x litholog
+    sudo mv litholog /usr/local/bin/
+    ```
+    
+    ### Windows
+    Download the Windows archive and extract it to your PATH.
+    
+    ## Usage
+    
+    ```bash
+    # Parse a geological description
+    litholog "Firm CLAY"
+    
+    # Interactive mode
+    litholog
+    
+    # Show help
+    litholog --help
+    ```
+    
+    ## Features
+    
+    - Parse geological descriptions according to BS5930 standards
+    - Extract material types, consistency, density, and other properties
+    - Support for both soil and rock descriptions
+    - Interactive TUI mode for exploring geological data
+    - JSON output for integration with other tools
+    
+    ## Platform Support
+    
+    This release includes binaries for:
+    - Linux (x86_64, aarch64)
+    - Windows (x86_64)
+    - macOS (x86_64, aarch64/Apple Silicon)
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: 'Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Documentation'
+      regexp: '^.*?docs?(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: 'Other'
+      order: 999
