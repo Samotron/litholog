@@ -3,6 +3,8 @@ const types = @import("types.zig");
 const terminology = @import("terminology.zig");
 const lexer = @import("lexer.zig");
 const strength_db = @import("strength_db.zig");
+const constituent_db = @import("constituent_db.zig");
+const validation = @import("validation.zig");
 
 pub const SoilDescription = types.SoilDescription;
 const MaterialType = types.MaterialType;
@@ -18,6 +20,8 @@ const Token = lexer.Token;
 const TokenType = lexer.TokenType;
 const Lexer = lexer.Lexer;
 const StrengthDatabase = strength_db.StrengthDatabase;
+const ConstituentDatabase = constituent_db.ConstituentDatabase;
+const Validator = validation.Validator;
 
 pub const Parser = struct {
     allocator: std.mem.Allocator,
@@ -45,6 +49,10 @@ pub const Parser = struct {
         };
 
         result = try self.parseTokens(tokens, result);
+
+        // Validate the parsed description
+        var validator = Validator.init(self.allocator);
+        try validator.validate(&result);
 
         return result;
     }
@@ -161,6 +169,38 @@ pub const Parser = struct {
                     }
                     i += 1;
                 },
+                .color => {
+                    if (parsed.color == null) {
+                        if (types.Color.fromString(token.value)) |color| {
+                            parsed.color = color;
+                        }
+                    }
+                    i += 1;
+                },
+                .moisture_content => {
+                    if (parsed.moisture_content == null) {
+                        if (types.MoistureContent.fromString(token.value)) |moisture| {
+                            parsed.moisture_content = moisture;
+                        }
+                    }
+                    i += 1;
+                },
+                .plasticity_index => {
+                    if (parsed.plasticity_index == null) {
+                        if (types.PlasticityIndex.fromString(token.value)) |plasticity| {
+                            parsed.plasticity_index = plasticity;
+                        }
+                    }
+                    i += 1;
+                },
+                .particle_size => {
+                    if (parsed.particle_size == null) {
+                        if (types.ParticleSize.fromString(token.value)) |particle_size| {
+                            parsed.particle_size = particle_size;
+                        }
+                    }
+                    i += 1;
+                },
                 .word => {
                     // Check if it's an uppercase soil or rock type we missed
                     if (parsed.material_type == .soil and parsed.primary_soil_type == null) {
@@ -190,6 +230,15 @@ pub const Parser = struct {
             parsed.rock_strength,
             parsed.primary_soil_type,
         );
+
+        // Lookup constituent guidance for soil materials
+        if (parsed.material_type == .soil) {
+            parsed.constituent_guidance = ConstituentDatabase.getConstituentGuidance(
+                self.allocator,
+                parsed.primary_soil_type,
+                parsed.secondary_constituents,
+            ) catch null;
+        }
 
         return parsed;
     }
@@ -390,4 +439,131 @@ test "parse rock with strength parameters" {
     try std.testing.expect(result.strength_parameters.?.parameter_type == .ucs);
     try std.testing.expect(result.strength_parameters.?.range.lower_bound == 50.0);
     try std.testing.expect(result.strength_parameters.?.range.upper_bound == 100.0);
+}
+
+test "validation - cohesive soil with consistency passes" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("Firm CLAY");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.material_type == .soil);
+    try std.testing.expect(result.primary_soil_type.? == .clay);
+    try std.testing.expect(result.consistency.? == .firm);
+    try std.testing.expect(result.warnings.len == 0);
+    try std.testing.expect(result.confidence == 1.0);
+}
+
+test "validation - cohesive soil missing consistency generates warning" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("CLAY");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.material_type == .soil);
+    try std.testing.expect(result.primary_soil_type.? == .clay);
+    try std.testing.expect(result.consistency == null);
+    try std.testing.expect(result.warnings.len == 1);
+    try std.testing.expect(result.confidence < 1.0);
+    try std.testing.expect(std.mem.indexOf(u8, result.warnings[0], "consistency descriptor") != null);
+}
+
+test "validation - granular soil with density passes" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("Dense SAND");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.material_type == .soil);
+    try std.testing.expect(result.primary_soil_type.? == .sand);
+    try std.testing.expect(result.density.? == .dense);
+    try std.testing.expect(result.warnings.len == 0);
+    try std.testing.expect(result.confidence == 1.0);
+}
+
+test "validation - granular soil missing density generates warning" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("SAND");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.material_type == .soil);
+    try std.testing.expect(result.primary_soil_type.? == .sand);
+    try std.testing.expect(result.density == null);
+    try std.testing.expect(result.warnings.len == 1);
+    try std.testing.expect(result.confidence < 1.0);
+    try std.testing.expect(std.mem.indexOf(u8, result.warnings[0], "density descriptor") != null);
+}
+
+test "validation - cohesive soil with wrong strength descriptor" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("Dense CLAY");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.material_type == .soil);
+    try std.testing.expect(result.primary_soil_type.? == .clay);
+    try std.testing.expect(result.density.? == .dense);
+    try std.testing.expect(result.consistency == null);
+    try std.testing.expect(result.warnings.len == 2); // Missing consistency + has density
+    try std.testing.expect(result.confidence < 1.0);
+}
+
+test "parse soil with constituent guidance" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("Firm slightly sandy CLAY");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.material_type == .soil);
+    try std.testing.expect(result.consistency.? == .firm);
+    try std.testing.expect(result.primary_soil_type.? == .clay);
+    try std.testing.expect(result.secondary_constituents.len == 1);
+
+    // Check constituent guidance
+    try std.testing.expect(result.constituent_guidance != null);
+    try std.testing.expect(result.constituent_guidance.?.constituents.len == 2);
+
+    // Primary constituent should be clay
+    try std.testing.expect(std.mem.eql(u8, result.constituent_guidance.?.constituents[0].soil_type, "clay"));
+    // Secondary constituent should be sandy
+    try std.testing.expect(std.mem.eql(u8, result.constituent_guidance.?.constituents[1].soil_type, "sandy"));
+}
+
+test "parse complex soil with constituent guidance" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("Firm to stiff slightly sandy very gravelly CLAY");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.material_type == .soil);
+    try std.testing.expect(result.consistency.? == .firm_to_stiff);
+    try std.testing.expect(result.primary_soil_type.? == .clay);
+    try std.testing.expect(result.secondary_constituents.len == 2);
+
+    // Check constituent guidance
+    try std.testing.expect(result.constituent_guidance != null);
+    try std.testing.expect(result.constituent_guidance.?.constituents.len == 3);
+
+    // Should have clay as primary, sandy and gravelly as secondary
+    var found_clay = false;
+    var found_sandy = false;
+    var found_gravelly = false;
+
+    for (result.constituent_guidance.?.constituents) |constituent| {
+        if (std.mem.eql(u8, constituent.soil_type, "clay")) found_clay = true;
+        if (std.mem.eql(u8, constituent.soil_type, "sandy")) found_sandy = true;
+        if (std.mem.eql(u8, constituent.soil_type, "gravelly")) found_gravelly = true;
+    }
+
+    try std.testing.expect(found_clay);
+    try std.testing.expect(found_sandy);
+    try std.testing.expect(found_gravelly);
 }

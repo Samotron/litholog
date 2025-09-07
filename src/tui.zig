@@ -128,7 +128,40 @@ pub const Tui = struct {
             try stdout.print("\x1b[1;36mStrength Parameters:\x1b[0m {s}\n", .{sp_str});
         }
 
+        // Display enhanced geological features
+        if (result.color) |color| {
+            try stdout.print("\x1b[1;36mColor:\x1b[0m {s}\n", .{color.toString()});
+        }
+
+        if (result.moisture_content) |moisture| {
+            try stdout.print("\x1b[1;36mMoisture Content:\x1b[0m {s}\n", .{moisture.toString()});
+        }
+
+        if (result.plasticity_index) |plasticity| {
+            try stdout.print("\x1b[1;36mPlasticity Index:\x1b[0m {s}\n", .{plasticity.toString()});
+        }
+
+        if (result.particle_size) |particle_size| {
+            try stdout.print("\x1b[1;36mParticle Size:\x1b[0m {s}\n", .{particle_size.toString()});
+        }
+
         try stdout.print("\x1b[1;36mConfidence:\x1b[0m {d:.2}\n", .{result.confidence});
+
+        // Display validity status with color coding
+        if (result.is_valid) {
+            try stdout.print("\x1b[1;36mValid:\x1b[0m \x1b[1;32mYes\x1b[0m\n", .{});
+        } else {
+            try stdout.print("\x1b[1;36mValid:\x1b[0m \x1b[1;31mNo\x1b[0m\n", .{});
+
+            // Show validation issues if invalid
+            if (result.warnings.len > 0) {
+                try stdout.print("\x1b[1;36mIssues:\x1b[0m\n", .{});
+                for (result.warnings) |warning| {
+                    try stdout.print("  \x1b[31m•\x1b[0m {s}\n", .{warning});
+                }
+            }
+        }
+
         try stdout.print("─────────────────────────────────────────────────────────────────────\n", .{});
     }
 };

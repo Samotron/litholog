@@ -154,15 +154,44 @@ pub const Cli = struct {
                 if (result.primary_soil_type) |pst| {
                     try stdout.print("Primary Soil: {s}\n", .{pst.toString()});
                 }
-                if (result.secondary_constituents.len > 0) {
-                    try stdout.print("Secondary Constituents:\n", .{});
-                    for (result.secondary_constituents) |sc| {
-                        const sc_str = try sc.toString(self.allocator);
-                        defer self.allocator.free(sc_str);
-                        try stdout.print("  - {s}\n", .{sc_str});
+                if (result.color) |color| {
+                    try stdout.print("Color: {s}\n", .{color.toString()});
+                }
+                if (result.moisture_content) |moisture| {
+                    try stdout.print("Moisture Content: {s}\n", .{moisture.toString()});
+                }
+                if (result.plasticity_index) |plasticity| {
+                    try stdout.print("Plasticity Index: {s}\n", .{plasticity.toString()});
+                }
+                if (result.particle_size) |particle_size| {
+                    try stdout.print("Particle Size: {s}\n", .{particle_size.toString()});
+                }
+                if (result.strength_parameters) |sp| {
+                    const sp_str = try sp.toString(self.allocator);
+                    defer self.allocator.free(sp_str);
+                    try stdout.print("Strength: {s}\n", .{sp_str});
+                }
+
+                if (result.constituent_guidance) |cg| {
+                    try stdout.print("Constituent Proportions:\n", .{});
+                    for (cg.constituents) |constituent| {
+                        const constituent_str = try constituent.toString(self.allocator);
+                        defer self.allocator.free(constituent_str);
+                        try stdout.print("  - {s}\n", .{constituent_str});
                     }
                 }
-                try stdout.print("Confidence: {d:.2}\n\n", .{result.confidence});
+                try stdout.print("Confidence: {d:.2}\n", .{result.confidence});
+                try stdout.print("Valid: {s}\n", .{if (result.is_valid) "Yes" else "No"});
+
+                // Show validation warnings if invalid
+                if (!result.is_valid and result.warnings.len > 0) {
+                    try stdout.print("Issues:\n", .{});
+                    for (result.warnings) |warning| {
+                        try stdout.print("  - {s}\n", .{warning});
+                    }
+                }
+
+                try stdout.print("\n", .{});
             },
             .verbose => {
                 const json = try result.toJson(self.allocator);

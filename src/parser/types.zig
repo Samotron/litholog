@@ -12,8 +12,9 @@ pub const MaterialType = enum {
     }
 };
 
-// Forward declaration for strength database
+// Forward declarations for database modules
 pub const StrengthParameters = @import("strength_db.zig").StrengthParameters;
+pub const ConstituentGuidance = @import("constituent_db.zig").ConstituentGuidance;
 
 pub const Consistency = enum {
     very_soft,
@@ -267,6 +268,186 @@ pub const RockStructure = enum {
     }
 };
 
+pub const Color = enum {
+    gray,
+    grey,
+    brown,
+    red,
+    yellow,
+    orange,
+    black,
+    white,
+    green,
+    blue,
+    pink,
+    purple,
+    tan,
+    buff,
+    dark_gray,
+    light_gray,
+    dark_brown,
+    light_brown,
+    reddish_brown,
+    yellowish_brown,
+
+    pub fn fromString(str: []const u8) ?Color {
+        var lower_buf: [64]u8 = undefined;
+        if (str.len >= lower_buf.len) return null;
+
+        const lower = std.ascii.lowerString(lower_buf[0..str.len], str);
+
+        if (std.mem.eql(u8, lower, "gray")) return .gray;
+        if (std.mem.eql(u8, lower, "grey")) return .grey;
+        if (std.mem.eql(u8, lower, "brown")) return .brown;
+        if (std.mem.eql(u8, lower, "red")) return .red;
+        if (std.mem.eql(u8, lower, "yellow")) return .yellow;
+        if (std.mem.eql(u8, lower, "orange")) return .orange;
+        if (std.mem.eql(u8, lower, "black")) return .black;
+        if (std.mem.eql(u8, lower, "white")) return .white;
+        if (std.mem.eql(u8, lower, "green")) return .green;
+        if (std.mem.eql(u8, lower, "blue")) return .blue;
+        if (std.mem.eql(u8, lower, "pink")) return .pink;
+        if (std.mem.eql(u8, lower, "purple")) return .purple;
+        if (std.mem.eql(u8, lower, "tan")) return .tan;
+        if (std.mem.eql(u8, lower, "buff")) return .buff;
+        if (std.mem.eql(u8, lower, "dark gray")) return .dark_gray;
+        if (std.mem.eql(u8, lower, "dark grey")) return .dark_gray;
+        if (std.mem.eql(u8, lower, "light gray")) return .light_gray;
+        if (std.mem.eql(u8, lower, "light grey")) return .light_gray;
+        if (std.mem.eql(u8, lower, "dark brown")) return .dark_brown;
+        if (std.mem.eql(u8, lower, "light brown")) return .light_brown;
+        if (std.mem.eql(u8, lower, "reddish brown")) return .reddish_brown;
+        if (std.mem.eql(u8, lower, "yellowish brown")) return .yellowish_brown;
+
+        return null;
+    }
+
+    pub fn toString(self: Color) []const u8 {
+        return switch (self) {
+            .gray => "gray",
+            .grey => "grey",
+            .brown => "brown",
+            .red => "red",
+            .yellow => "yellow",
+            .orange => "orange",
+            .black => "black",
+            .white => "white",
+            .green => "green",
+            .blue => "blue",
+            .pink => "pink",
+            .purple => "purple",
+            .tan => "tan",
+            .buff => "buff",
+            .dark_gray => "dark gray",
+            .light_gray => "light gray",
+            .dark_brown => "dark brown",
+            .light_brown => "light brown",
+            .reddish_brown => "reddish brown",
+            .yellowish_brown => "yellowish brown",
+        };
+    }
+};
+
+pub const MoistureContent = enum {
+    dry,
+    moist,
+    wet,
+    saturated,
+
+    pub fn fromString(str: []const u8) ?MoistureContent {
+        var lower_buf: [64]u8 = undefined;
+        if (str.len >= lower_buf.len) return null;
+
+        const lower = std.ascii.lowerString(lower_buf[0..str.len], str);
+
+        if (std.mem.eql(u8, lower, "dry")) return .dry;
+        if (std.mem.eql(u8, lower, "moist")) return .moist;
+        if (std.mem.eql(u8, lower, "wet")) return .wet;
+        if (std.mem.eql(u8, lower, "saturated")) return .saturated;
+
+        return null;
+    }
+
+    pub fn toString(self: MoistureContent) []const u8 {
+        return switch (self) {
+            .dry => "dry",
+            .moist => "moist",
+            .wet => "wet",
+            .saturated => "saturated",
+        };
+    }
+};
+
+pub const PlasticityIndex = enum {
+    non_plastic,
+    low_plasticity,
+    intermediate_plasticity,
+    high_plasticity,
+    extremely_high_plasticity,
+
+    pub fn fromString(str: []const u8) ?PlasticityIndex {
+        var lower_buf: [64]u8 = undefined;
+        if (str.len >= lower_buf.len) return null;
+
+        const lower = std.ascii.lowerString(lower_buf[0..str.len], str);
+
+        if (std.mem.eql(u8, lower, "non plastic")) return .non_plastic;
+        if (std.mem.eql(u8, lower, "non-plastic")) return .non_plastic;
+        if (std.mem.eql(u8, lower, "low plasticity")) return .low_plasticity;
+        if (std.mem.eql(u8, lower, "intermediate plasticity")) return .intermediate_plasticity;
+        if (std.mem.eql(u8, lower, "high plasticity")) return .high_plasticity;
+        if (std.mem.eql(u8, lower, "extremely high plasticity")) return .extremely_high_plasticity;
+
+        return null;
+    }
+
+    pub fn toString(self: PlasticityIndex) []const u8 {
+        return switch (self) {
+            .non_plastic => "non plastic",
+            .low_plasticity => "low plasticity",
+            .intermediate_plasticity => "intermediate plasticity",
+            .high_plasticity => "high plasticity",
+            .extremely_high_plasticity => "extremely high plasticity",
+        };
+    }
+};
+
+pub const ParticleSize = enum {
+    fine,
+    medium,
+    coarse,
+    fine_to_medium,
+    medium_to_coarse,
+    fine_to_coarse,
+
+    pub fn fromString(str: []const u8) ?ParticleSize {
+        var lower_buf: [64]u8 = undefined;
+        if (str.len >= lower_buf.len) return null;
+
+        const lower = std.ascii.lowerString(lower_buf[0..str.len], str);
+
+        if (std.mem.eql(u8, lower, "fine")) return .fine;
+        if (std.mem.eql(u8, lower, "medium")) return .medium;
+        if (std.mem.eql(u8, lower, "coarse")) return .coarse;
+        if (std.mem.eql(u8, lower, "fine to medium")) return .fine_to_medium;
+        if (std.mem.eql(u8, lower, "medium to coarse")) return .medium_to_coarse;
+        if (std.mem.eql(u8, lower, "fine to coarse")) return .fine_to_coarse;
+
+        return null;
+    }
+
+    pub fn toString(self: ParticleSize) []const u8 {
+        return switch (self) {
+            .fine => "fine",
+            .medium => "medium",
+            .coarse => "coarse",
+            .fine_to_medium => "fine to medium",
+            .medium_to_coarse => "medium to coarse",
+            .fine_to_coarse => "fine to coarse",
+        };
+    }
+};
+
 pub const SoilType = enum {
     clay,
     silt,
@@ -361,17 +542,35 @@ pub const SoilDescription = struct {
     weathering_grade: ?WeatheringGrade = null,
     rock_structure: ?RockStructure = null,
     primary_rock_type: ?RockType = null,
+    // Enhanced geological features
+    color: ?Color = null,
+    moisture_content: ?MoistureContent = null,
+    plasticity_index: ?PlasticityIndex = null,
+    particle_size: ?ParticleSize = null,
     // Strength parameters
     strength_parameters: ?StrengthParameters = null,
+    // Constituent guidance
+    constituent_guidance: ?ConstituentGuidance = null,
     // Common properties
-    color: ?[]const u8 = null,
     structure: ?[]const u8 = null,
     confidence: f32 = 1.0,
     warnings: [][]const u8 = &[_][]const u8{},
+    is_valid: bool = true,
 
     pub fn deinit(self: SoilDescription, allocator: std.mem.Allocator) void {
         allocator.free(self.raw_description);
         allocator.free(self.secondary_constituents);
+
+        // Free warning strings
+        for (self.warnings) |warning| {
+            allocator.free(warning);
+        }
+        allocator.free(self.warnings);
+
+        // Free constituent guidance if present
+        if (self.constituent_guidance) |guidance| {
+            guidance.deinit(allocator);
+        }
     }
 
     pub fn toJson(self: SoilDescription, allocator: std.mem.Allocator) ![]u8 {
@@ -411,6 +610,23 @@ pub const SoilDescription = struct {
             try writer.print(",\"primary_rock_type\":\"{s}\"", .{prt.toString()});
         }
 
+        // Add enhanced geological features to JSON
+        if (self.color) |color| {
+            try writer.print(",\"color\":\"{s}\"", .{color.toString()});
+        }
+
+        if (self.moisture_content) |moisture| {
+            try writer.print(",\"moisture_content\":\"{s}\"", .{moisture.toString()});
+        }
+
+        if (self.plasticity_index) |plasticity| {
+            try writer.print(",\"plasticity_index\":\"{s}\"", .{plasticity.toString()});
+        }
+
+        if (self.particle_size) |particle_size| {
+            try writer.print(",\"particle_size\":\"{s}\"", .{particle_size.toString()});
+        }
+
         // Add strength parameters to JSON
         if (self.strength_parameters) |sp| {
             try writer.print(",\"strength_parameter_type\":\"{s}\"", .{sp.parameter_type.toString()});
@@ -425,6 +641,23 @@ pub const SoilDescription = struct {
             try writer.print(",\"strength_confidence\":{d:.2}", .{sp.confidence});
         }
 
+        // Add constituent guidance to JSON
+        if (self.constituent_guidance) |cg| {
+            try writer.writeAll(",\"constituent_proportions\":[");
+            for (cg.constituents, 0..) |constituent, i| {
+                if (i > 0) try writer.writeAll(",");
+                const typical = if (constituent.range.typical_value) |tv| tv else constituent.range.getMidpoint();
+                try writer.print("{{\"soil_type\":\"{s}\",\"percentage_range\":\"{d:.0}-{d:.0}\",\"typical_percentage\":{d:.0}}}", .{
+                    constituent.soil_type,
+                    constituent.range.lower_bound,
+                    constituent.range.upper_bound,
+                    typical,
+                });
+            }
+            try writer.writeAll("]");
+            try writer.print(",\"constituent_confidence\":{d:.2}", .{cg.confidence});
+        }
+
         try writer.writeAll(",\"secondary_constituents\":[");
         for (self.secondary_constituents, 0..) |sc, i| {
             if (i > 0) try writer.writeAll(",");
@@ -432,7 +665,16 @@ pub const SoilDescription = struct {
         }
         try writer.writeAll("]");
 
+        try writer.writeAll(",\"warnings\":[");
+        for (self.warnings, 0..) |warning, i| {
+            if (i > 0) try writer.writeAll(",");
+            try writer.print("\"{s}\"", .{warning});
+        }
+        try writer.writeAll("]");
+
         try writer.print(",\"confidence\":{d:.2}", .{self.confidence});
+
+        try writer.print(",\"is_valid\":{s}", .{if (self.is_valid) "true" else "false"});
 
         try writer.writeAll("}");
 

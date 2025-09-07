@@ -1,0 +1,20 @@
+# Valid descriptions
+Firm brown CLAY
+Dense gray SAND  
+Stiff high plasticity CLAY
+Very loose fine SAND
+Strong LIMESTONE
+
+# Invalid - Wrong strength descriptors for soil type
+Soft to firm SAND
+Dense CLAY
+Stiff GRAVEL
+
+# Invalid - Wrong plasticity descriptors
+High plasticity SAND
+Low plasticity GRAVEL
+
+# Invalid - Material misclassification
+Strong CLAY
+Moderately strong SILT
+Very strong SAND

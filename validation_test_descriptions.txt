@@ -1,0 +1,13 @@
+# Valid descriptions
+Firm brown CLAY
+Dense gray SAND
+Stiff high plasticity CLAY
+Very loose dry fine SAND
+Strong LIMESTONE
+
+# Invalid descriptions - should be marked invalid
+Soft to firm SAND
+Dense CLAY  
+High plasticity GRAVEL
+Firm loose SAND
+Strong CLAY
