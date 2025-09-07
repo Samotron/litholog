@@ -3,10 +3,10 @@ const std = @import("std");
 pub const VERSION = std.SemanticVersion{
     .major = 0,
     .minor = 0,
-    .patch = 3,
+    .patch = 4,
 };
 
-pub const VERSION_STRING = "0.0.3";
+pub const VERSION_STRING = "0.0.4";
 
 // Export for C bindings
 export fn litholog_version_major() u32 {
