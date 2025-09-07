@@ -102,112 +102,66 @@ jobs:
     - name: Display structure of downloaded files
       run: ls -la artifacts/
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+    - name: Create Release and Upload Assets
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Litholog ${{ steps.version.outputs.VERSION }}
-        draft: false
-        prerelease: false
-        body: |
-          # Litholog ${{ steps.version.outputs.VERSION }}
-          
-          A geological description parser CLI tool following BS5930 standards.
-          
-          ## Installation
-          
-          ### Linux/macOS
-          ```bash
-          # Download the appropriate binary for your platform
-          curl -L https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/litholog-linux-x86_64 -o litholog
-          chmod +x litholog
-          sudo mv litholog /usr/local/bin/
-          ```
-          
-          ### Windows
-          Download the Windows executable and add it to your PATH.
-          
-          ## Usage
-          
-          ```bash
-          # Parse a geological description
-          litholog "Firm CLAY"
-          
-          # Interactive mode
-          litholog
-          
-          # Show help
-          litholog --help
-          ```
-          
-          ## Features
-          
-          - Parse geological descriptions according to BS5930 standards
-          - Extract material types, consistency, density, and other properties
-          - Support for both soil and rock descriptions
-          - Interactive TUI mode for exploring geological data
-          - JSON output for integration with other tools
-          
-          ## Platform Support
-          
-          This release includes binaries for:
-          - Linux (x86_64, aarch64)
-          - Windows (x86_64)
-          - macOS (x86_64, aarch64/Apple Silicon)
-          
-          ## What's Changed
-          
-          See the commit history for detailed changes in this release.
-
-    - name: Upload Linux x86_64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/litholog-linux-x86_64/litholog-linux-x86_64
-        asset_name: litholog-linux-x86_64
-        asset_content_type: application/octet-stream
-
-    - name: Upload Linux aarch64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/litholog-linux-aarch64/litholog-linux-aarch64
-        asset_name: litholog-linux-aarch64
-        asset_content_type: application/octet-stream
-
-    - name: Upload Windows x86_64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/litholog-windows-x86_64.exe/litholog-windows-x86_64.exe
-        asset_name: litholog-windows-x86_64.exe
-        asset_content_type: application/octet-stream
-
-    - name: Upload macOS x86_64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/litholog-macos-x86_64/litholog-macos-x86_64
-        asset_name: litholog-macos-x86_64
-        asset_content_type: application/octet-stream
-
-    - name: Upload macOS aarch64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/litholog-macos-aarch64/litholog-macos-aarch64
-        asset_name: litholog-macos-aarch64
-        asset_content_type: application/octet-stream
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Create release with GitHub CLI
+        gh release create ${{ github.ref_name }} \
+          --title "Litholog ${{ steps.version.outputs.VERSION }}" \
+          --notes "# Litholog ${{ steps.version.outputs.VERSION }}
+        
+        A geological description parser CLI tool following BS5930 standards.
+        
+        ## Installation
+        
+        ### Linux/macOS
+        \`\`\`bash
+        # Download the appropriate binary for your platform
+        curl -L https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/litholog-linux-x86_64 -o litholog
+        chmod +x litholog
+        sudo mv litholog /usr/local/bin/
+        \`\`\`
+        
+        ### Windows
+        Download the Windows executable and add it to your PATH.
+        
+        ## Usage
+        
+        \`\`\`bash
+        # Parse a geological description
+        litholog \"Firm CLAY\"
+        
+        # Interactive mode
+        litholog
+        
+        # Show help
+        litholog --help
+        \`\`\`
+        
+        ## Features
+        
+        - Parse geological descriptions according to BS5930 standards
+        - Extract material types, consistency, density, and other properties
+        - Support for both soil and rock descriptions
+        - Interactive TUI mode for exploring geological data
+        - JSON output for integration with other tools
+        
+        ## Platform Support
+        
+        This release includes binaries for:
+        - Linux (x86_64, aarch64)
+        - Windows (x86_64)
+        - macOS (x86_64, aarch64/Apple Silicon)
+        
+        ## What's Changed
+        
+        See the commit history for detailed changes in this release."
+        
+        # Upload all assets
+        gh release upload ${{ github.ref_name }} \
+          artifacts/litholog-linux-x86_64/litholog-linux-x86_64 \
+          artifacts/litholog-linux-aarch64/litholog-linux-aarch64 \
+          artifacts/litholog-windows-x86_64.exe/litholog-windows-x86_64.exe \
+          artifacts/litholog-macos-x86_64/litholog-macos-x86_64 \
+          artifacts/litholog-macos-aarch64/litholog-macos-aarch64
