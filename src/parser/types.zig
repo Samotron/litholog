@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub const MaterialType = enum {
     soil,
@@ -677,6 +678,236 @@ pub const SoilDescription = struct {
         try writer.print(",\"is_valid\":{s}", .{if (self.is_valid) "true" else "false"});
 
         try writer.writeAll("}");
+
+        return result.toOwnedSlice();
+    }
+
+    pub fn toPrettyJson(self: SoilDescription, allocator: std.mem.Allocator) ![]u8 {
+        var result = std.ArrayList(u8).init(allocator);
+        var writer = result.writer();
+
+        try writer.writeAll("{\n");
+
+        try writer.print("  \"raw_description\": \"{s}\",\n", .{self.raw_description});
+        try writer.print("  \"material_type\": \"{s}\"", .{self.material_type.toString()});
+
+        if (self.consistency) |c| {
+            try writer.print(",\n  \"consistency\": \"{s}\"", .{c.toString()});
+        }
+
+        if (self.density) |d| {
+            try writer.print(",\n  \"density\": \"{s}\"", .{d.toString()});
+        }
+
+        if (self.primary_soil_type) |pst| {
+            try writer.print(",\n  \"primary_soil_type\": \"{s}\"", .{pst.toString()});
+        }
+
+        if (self.rock_strength) |rs| {
+            try writer.print(",\n  \"rock_strength\": \"{s}\"", .{rs.toString()});
+        }
+
+        if (self.weathering_grade) |wg| {
+            try writer.print(",\n  \"weathering_grade\": \"{s}\"", .{wg.toString()});
+        }
+
+        if (self.rock_structure) |rs| {
+            try writer.print(",\n  \"rock_structure\": \"{s}\"", .{rs.toString()});
+        }
+
+        if (self.primary_rock_type) |prt| {
+            try writer.print(",\n  \"primary_rock_type\": \"{s}\"", .{prt.toString()});
+        }
+
+        // Add enhanced geological features to JSON
+        if (self.color) |color| {
+            try writer.print(",\n  \"color\": \"{s}\"", .{color.toString()});
+        }
+
+        if (self.moisture_content) |moisture| {
+            try writer.print(",\n  \"moisture_content\": \"{s}\"", .{moisture.toString()});
+        }
+
+        if (self.plasticity_index) |plasticity| {
+            try writer.print(",\n  \"plasticity_index\": \"{s}\"", .{plasticity.toString()});
+        }
+
+        if (self.particle_size) |particle_size| {
+            try writer.print(",\n  \"particle_size\": \"{s}\"", .{particle_size.toString()});
+        }
+
+        // Add strength parameters to JSON
+        if (self.strength_parameters) |sp| {
+            try writer.print(",\n  \"strength_parameter_type\": \"{s}\"", .{sp.parameter_type.toString()});
+            try writer.print(",\n  \"strength_parameter_units\": \"{s}\"", .{sp.parameter_type.getUnits()});
+            try writer.print(",\n  \"strength_lower_bound\": {d:.2}", .{sp.range.lower_bound});
+            try writer.print(",\n  \"strength_upper_bound\": {d:.2}", .{sp.range.upper_bound});
+            if (sp.range.typical_value) |tv| {
+                try writer.print(",\n  \"strength_typical_value\": {d:.2}", .{tv});
+            } else {
+                try writer.print(",\n  \"strength_typical_value\": {d:.2}", .{sp.range.getMidpoint()});
+            }
+            try writer.print(",\n  \"strength_confidence\": {d:.2}", .{sp.confidence});
+        }
+
+        // Add constituent guidance to JSON
+        if (self.constituent_guidance) |cg| {
+            try writer.writeAll(",\n  \"constituent_proportions\": [\n");
+            for (cg.constituents, 0..) |constituent, i| {
+                if (i > 0) try writer.writeAll(",\n");
+                const typical = if (constituent.range.typical_value) |tv| tv else constituent.range.getMidpoint();
+                try writer.print("    {{\n      \"soil_type\": \"{s}\",\n      \"percentage_range\": \"{d:.0}-{d:.0}\",\n      \"typical_percentage\": {d:.0}\n    }}", .{
+                    constituent.soil_type,
+                    constituent.range.lower_bound,
+                    constituent.range.upper_bound,
+                    typical,
+                });
+            }
+            try writer.writeAll("\n  ]");
+            try writer.print(",\n  \"constituent_confidence\": {d:.2}", .{cg.confidence});
+        }
+
+        try writer.writeAll(",\n  \"secondary_constituents\": [\n");
+        for (self.secondary_constituents, 0..) |sc, i| {
+            if (i > 0) try writer.writeAll(",\n");
+            try writer.print("    {{\n      \"amount\": \"{s}\",\n      \"soil_type\": \"{s}\"\n    }}", .{ sc.amount, sc.soil_type });
+        }
+        try writer.writeAll("\n  ]");
+
+        try writer.writeAll(",\n  \"warnings\": [\n");
+        for (self.warnings, 0..) |warning, i| {
+            if (i > 0) try writer.writeAll(",\n");
+            try writer.print("    \"{s}\"", .{warning});
+        }
+        try writer.writeAll("\n  ]");
+
+        try writer.print(",\n  \"confidence\": {d:.2}", .{self.confidence});
+
+        try writer.print(",\n  \"is_valid\": {s}", .{if (self.is_valid) "true" else "false"});
+
+        try writer.writeAll("\n}");
+
+        return result.toOwnedSlice();
+    }
+
+    pub fn toColorizedJson(self: SoilDescription, allocator: std.mem.Allocator, use_colors: bool) ![]u8 {
+        if (!use_colors) {
+            return self.toPrettyJson(allocator);
+        }
+
+        var result = std.ArrayList(u8).init(allocator);
+        var writer = result.writer();
+
+        // ANSI color codes (jq-style)
+        const bracket_color = "\x1b[90m"; // dim white for brackets
+        const key_color = "\x1b[34m"; // blue for keys
+        const string_color = "\x1b[32m"; // green for strings
+        const number_color = "\x1b[33m"; // yellow for numbers
+        const bool_color = "\x1b[35m"; // magenta for booleans
+        const reset_color = "\x1b[0m"; // reset
+
+        try writer.print("{s}{{{s}\n", .{ bracket_color, reset_color });
+
+        try writer.print("  {s}\"{s}raw_description{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, self.raw_description, string_color, reset_color });
+        try writer.print(",\n  {s}\"{s}material_type{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, self.material_type.toString(), string_color, reset_color });
+
+        if (self.consistency) |c| {
+            try writer.print(",\n  {s}\"{s}consistency{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, c.toString(), string_color, reset_color });
+        }
+
+        if (self.density) |d| {
+            try writer.print(",\n  {s}\"{s}density{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, d.toString(), string_color, reset_color });
+        }
+
+        if (self.primary_soil_type) |pst| {
+            try writer.print(",\n  {s}\"{s}primary_soil_type{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, pst.toString(), string_color, reset_color });
+        }
+
+        if (self.rock_strength) |rs| {
+            try writer.print(",\n  {s}\"{s}rock_strength{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, rs.toString(), string_color, reset_color });
+        }
+
+        if (self.weathering_grade) |wg| {
+            try writer.print(",\n  {s}\"{s}weathering_grade{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, wg.toString(), string_color, reset_color });
+        }
+
+        if (self.rock_structure) |rs| {
+            try writer.print(",\n  {s}\"{s}rock_structure{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, rs.toString(), string_color, reset_color });
+        }
+
+        if (self.primary_rock_type) |prt| {
+            try writer.print(",\n  {s}\"{s}primary_rock_type{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, prt.toString(), string_color, reset_color });
+        }
+
+        // Add enhanced geological features to JSON
+        if (self.color) |color| {
+            try writer.print(",\n  {s}\"{s}color{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, color.toString(), string_color, reset_color });
+        }
+
+        if (self.moisture_content) |moisture| {
+            try writer.print(",\n  {s}\"{s}moisture_content{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, moisture.toString(), string_color, reset_color });
+        }
+
+        if (self.plasticity_index) |plasticity| {
+            try writer.print(",\n  {s}\"{s}plasticity_index{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, plasticity.toString(), string_color, reset_color });
+        }
+
+        if (self.particle_size) |particle_size| {
+            try writer.print(",\n  {s}\"{s}particle_size{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, particle_size.toString(), string_color, reset_color });
+        }
+
+        // Add strength parameters to JSON
+        if (self.strength_parameters) |sp| {
+            try writer.print(",\n  {s}\"{s}strength_parameter_type{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, sp.parameter_type.toString(), string_color, reset_color });
+            try writer.print(",\n  {s}\"{s}strength_parameter_units{s}\"{s}: {s}\"{s}{s}{s}\"{s}", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, sp.parameter_type.getUnits(), string_color, reset_color });
+            try writer.print(",\n  {s}\"{s}strength_lower_bound{s}\"{s}: {s}{d:.2}{s}", .{ key_color, reset_color, key_color, reset_color, number_color, sp.range.lower_bound, reset_color });
+            try writer.print(",\n  {s}\"{s}strength_upper_bound{s}\"{s}: {s}{d:.2}{s}", .{ key_color, reset_color, key_color, reset_color, number_color, sp.range.upper_bound, reset_color });
+            if (sp.range.typical_value) |tv| {
+                try writer.print(",\n  {s}\"{s}strength_typical_value{s}\"{s}: {s}{d:.2}{s}", .{ key_color, reset_color, key_color, reset_color, number_color, tv, reset_color });
+            } else {
+                try writer.print(",\n  {s}\"{s}strength_typical_value{s}\"{s}: {s}{d:.2}{s}", .{ key_color, reset_color, key_color, reset_color, number_color, sp.range.getMidpoint(), reset_color });
+            }
+            try writer.print(",\n  {s}\"{s}strength_confidence{s}\"{s}: {s}{d:.2}{s}", .{ key_color, reset_color, key_color, reset_color, number_color, sp.confidence, reset_color });
+        }
+
+        // Add constituent guidance to JSON
+        if (self.constituent_guidance) |cg| {
+            try writer.print(",\n  {s}\"{s}constituent_proportions{s}\"{s}: {s}[{s}\n", .{ key_color, reset_color, key_color, reset_color, bracket_color, reset_color });
+            for (cg.constituents, 0..) |constituent, i| {
+                if (i > 0) try writer.writeAll(",\n");
+                const typical = if (constituent.range.typical_value) |tv| tv else constituent.range.getMidpoint();
+                try writer.print("    {s}{{{s}\n", .{ bracket_color, reset_color });
+                try writer.print("      {s}\"{s}soil_type{s}\"{s}: {s}\"{s}{s}{s}\"{s},\n", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, constituent.soil_type, string_color, reset_color });
+                try writer.print("      {s}\"{s}percentage_range{s}\"{s}: {s}\"{s}{d:.0}-{d:.0}{s}\"{s},\n", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, constituent.range.lower_bound, constituent.range.upper_bound, string_color, reset_color });
+                try writer.print("      {s}\"{s}typical_percentage{s}\"{s}: {s}{d:.0}{s}\n", .{ key_color, reset_color, key_color, reset_color, number_color, typical, reset_color });
+                try writer.print("    {s}}}{s}", .{ bracket_color, reset_color });
+            }
+            try writer.print("\n  {s}]{s}", .{ bracket_color, reset_color });
+            try writer.print(",\n  {s}\"{s}constituent_confidence{s}\"{s}: {s}{d:.2}{s}", .{ key_color, reset_color, key_color, reset_color, number_color, cg.confidence, reset_color });
+        }
+
+        try writer.print(",\n  {s}\"{s}secondary_constituents{s}\"{s}: {s}[{s}\n", .{ key_color, reset_color, key_color, reset_color, bracket_color, reset_color });
+        for (self.secondary_constituents, 0..) |sc, i| {
+            if (i > 0) try writer.writeAll(",\n");
+            try writer.print("    {s}{{{s}\n", .{ bracket_color, reset_color });
+            try writer.print("      {s}\"{s}amount{s}\"{s}: {s}\"{s}{s}{s}\"{s},\n", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, sc.amount, string_color, reset_color });
+            try writer.print("      {s}\"{s}soil_type{s}\"{s}: {s}\"{s}{s}{s}\"{s}\n", .{ key_color, reset_color, key_color, reset_color, string_color, reset_color, sc.soil_type, string_color, reset_color });
+            try writer.print("    {s}}}{s}", .{ bracket_color, reset_color });
+        }
+        try writer.print("\n  {s}]{s}", .{ bracket_color, reset_color });
+
+        try writer.print(",\n  {s}\"{s}warnings{s}\"{s}: {s}[{s}\n", .{ key_color, reset_color, key_color, reset_color, bracket_color, reset_color });
+        for (self.warnings, 0..) |warning, i| {
+            if (i > 0) try writer.writeAll(",\n");
+            try writer.print("    {s}\"{s}{s}{s}\"{s}", .{ string_color, reset_color, warning, string_color, reset_color });
+        }
+        try writer.print("\n  {s}]{s}", .{ bracket_color, reset_color });
+
+        try writer.print(",\n  {s}\"{s}confidence{s}\"{s}: {s}{d:.2}{s}", .{ key_color, reset_color, key_color, reset_color, number_color, self.confidence, reset_color });
+
+        try writer.print(",\n  {s}\"{s}is_valid{s}\"{s}: {s}{s}{s}", .{ key_color, reset_color, key_color, reset_color, bool_color, if (self.is_valid) "true" else "false", reset_color });
+
+        try writer.print("\n{s}}}{s}", .{ bracket_color, reset_color });
 
         return result.toOwnedSlice();
     }
