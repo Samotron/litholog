@@ -158,6 +158,12 @@ unsigned int litholog_version_minor(void);
 unsigned int litholog_version_patch(void);
 const char* litholog_version_string(void);
 
+// Advanced features
+char* litholog_generate_description(const litholog_soil_description_t* description);
+char* litholog_generate_concise(const litholog_soil_description_t* description);
+char* litholog_fuzzy_match(const char* target, const char** options, int options_count, float threshold);
+float litholog_similarity(const char* s1, const char* s2);
+
 #ifdef __cplusplus
 }
 #endif

@@ -263,3 +263,110 @@ pub const litholog_version_major = version.litholog_version_major;
 pub const litholog_version_minor = version.litholog_version_minor;
 pub const litholog_version_patch = version.litholog_version_patch;
 pub const litholog_version_string = version.litholog_version_string;
+
+// New feature exports
+
+const generator = @import("parser/generator.zig");
+const fuzzy = @import("parser/fuzzy.zig");
+
+/// Generate a description string from a parsed description
+export fn litholog_generate_description(description: ?*const CSoilDescription) ?[*:0]const u8 {
+    if (description) |desc| {
+        // Convert C description back to Zig
+        var zig_desc = SoilDescription{
+            .raw_description = std.mem.span(desc.raw_description),
+            .material_type = @enumFromInt(desc.material_type),
+            .confidence = @floatCast(desc.confidence),
+        };
+
+        if (desc.consistency >= 0) {
+            zig_desc.consistency = @enumFromInt(desc.consistency);
+        }
+        if (desc.density >= 0) {
+            zig_desc.density = @enumFromInt(desc.density);
+        }
+        if (desc.primary_soil_type >= 0) {
+            zig_desc.primary_soil_type = @enumFromInt(desc.primary_soil_type);
+        }
+        if (desc.rock_strength >= 0) {
+            zig_desc.rock_strength = @enumFromInt(desc.rock_strength);
+        }
+        if (desc.weathering_grade >= 0) {
+            zig_desc.weathering_grade = @enumFromInt(desc.weathering_grade);
+        }
+        if (desc.rock_structure >= 0) {
+            zig_desc.rock_structure = @enumFromInt(desc.rock_structure);
+        }
+        if (desc.primary_rock_type >= 0) {
+            zig_desc.primary_rock_type = @enumFromInt(desc.primary_rock_type);
+        }
+
+        const generated = generator.generate(zig_desc, allocator) catch return null;
+        const generated_z = allocator.dupeZ(u8, generated) catch return null;
+        allocator.free(generated);
+        return generated_z.ptr;
+    }
+    return null;
+}
+
+/// Generate a concise description
+export fn litholog_generate_concise(description: ?*const CSoilDescription) ?[*:0]const u8 {
+    if (description) |desc| {
+        var zig_desc = SoilDescription{
+            .raw_description = std.mem.span(desc.raw_description),
+            .material_type = @enumFromInt(desc.material_type),
+            .confidence = @floatCast(desc.confidence),
+        };
+
+        if (desc.consistency >= 0) {
+            zig_desc.consistency = @enumFromInt(desc.consistency);
+        }
+        if (desc.density >= 0) {
+            zig_desc.density = @enumFromInt(desc.density);
+        }
+        if (desc.primary_soil_type >= 0) {
+            zig_desc.primary_soil_type = @enumFromInt(desc.primary_soil_type);
+        }
+        if (desc.rock_strength >= 0) {
+            zig_desc.rock_strength = @enumFromInt(desc.rock_strength);
+        }
+        if (desc.primary_rock_type >= 0) {
+            zig_desc.primary_rock_type = @enumFromInt(desc.primary_rock_type);
+        }
+
+        const generated = generator.generateConcise(zig_desc, allocator) catch return null;
+        const generated_z = allocator.dupeZ(u8, generated) catch return null;
+        allocator.free(generated);
+        return generated_z.ptr;
+    }
+    return null;
+}
+
+/// Fuzzy match a string against options
+export fn litholog_fuzzy_match(target: [*:0]const u8, options_ptr: [*][*:0]const u8, options_count: i32, threshold: f32) ?[*:0]const u8 {
+    const target_slice = std.mem.span(target);
+
+    var options = allocator.alloc([]const u8, @intCast(options_count)) catch return null;
+    defer allocator.free(options);
+
+    for (0..@intCast(options_count)) |i| {
+        options[i] = std.mem.span(options_ptr[i]);
+    }
+
+    const match = fuzzy.fuzzyMatchCaseInsensitive(target_slice, options, threshold, allocator) catch return null;
+
+    if (match) |m| {
+        const match_z = allocator.dupeZ(u8, m) catch return null;
+        return match_z.ptr;
+    }
+
+    return null;
+}
+
+/// Calculate similarity between two strings (0.0 to 1.0)
+export fn litholog_similarity(s1: [*:0]const u8, s2: [*:0]const u8) f32 {
+    const s1_slice = std.mem.span(s1);
+    const s2_slice = std.mem.span(s2);
+
+    return fuzzy.similarityRatio(s1_slice, s2_slice, allocator) catch 0.0;
+}
