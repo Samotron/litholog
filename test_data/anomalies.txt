@@ -1,0 +1,93 @@
+# Anomalies - property mismatches (high severity)
+Dense firm CLAY
+Loose stiff SAND
+Strong dense LIMESTONE
+Weak firm SANDSTONE
+
+# Anomalies - conflicting descriptors (high severity)
+Very soft hard CLAY
+Dense loose SAND
+Strong weak LIMESTONE
+Fresh completely weathered GRANITE
+
+# Anomalies - unusual but not impossible (medium severity)
+Very dense CLAY (should be cohesive)
+Extremely soft CLAY (very unusual)
+Moderately loose SAND (non-standard term)
+
+# Anomalies - missing critical information (medium severity)
+slightly sandy CLAY (no consistency)
+moderately silty SAND (no density)
+weathered LIMESTONE (no strength)
+
+# Anomalies - over-specified (low severity)
+Firm stiff CLAY (redundant)
+Dense very dense SAND (redundant)
+Strong very strong LIMESTONE (redundant)
+
+# Anomalies - rare combinations (low severity)
+Pink CLAY
+Purple SAND
+Fluorescent green LIMESTONE
+Transparent CLAY
+
+# Anomalies - impossible geology (critical severity)
+Liquid GRANITE
+Gaseous LIMESTONE
+Frozen molten BASALT
+Transparent opaque MUDSTONE
+
+# Anomalies - contradictory moisture states (high severity)
+Dry saturated CLAY
+Wet dry SAND
+Moist dry GRAVEL
+
+# Anomalies - impossible strength combinations (critical severity)
+Very weak extremely strong LIMESTONE
+Soft hard CLAY
+Loose dense SAND
+
+# Anomalies - too many secondary constituents (medium severity)
+Very sandy very silty very gravelly very clayey SAND
+Extremely sandy extremely silty extremely gravelly CLAY
+
+# Anomalies - percentage impossibilities (high severity)
+100% sandy CLAY (should be SAND)
+90% silty SAND (should be SILT)
+
+# Anomalies - typos with context (low-medium severity)
+Frim CLAY
+Danse SAND
+Strog LIMESTONE
+Moderatly strong SANDSTONE
+
+# Anomalies - wrong material type keywords (high severity)
+Jointed CLAY
+Bedded SAND
+Foliated GRAVEL
+Consistency LIMESTONE
+
+# Anomalies - mixed standards (low severity)
+Medium dense firm CLAY (mixing granular and cohesive terms)
+Stiff loose SAND (mixing cohesive and granular terms)
+
+# Anomalies - non-geological terms (critical severity)
+Delicious CLAY
+Happy SAND
+Angry LIMESTONE
+Sleepy GRANITE
+
+# Anomalies - temporal confusion (medium severity)
+Future CLAY
+Past SAND
+Ancient modern LIMESTONE
+
+# Anomalies - scale confusion (medium severity)
+Microscopic BOULDER
+Gigantic SILT
+Enormous fine SAND
+
+# Anomalies - suspicious patterns (medium severity)
+Test test test CLAY
+Aaaa bbbb SAND
+12345 LIMESTONE

@@ -1,0 +1,86 @@
+# Edge cases - minimal descriptions
+CLAY
+SAND
+GRAVEL
+LIMESTONE
+SANDSTONE
+
+# Edge cases - single word with modifier
+Firm
+Dense
+Strong
+
+# Edge cases - all caps variations
+FIRM CLAY
+DENSE SAND
+STRONG LIMESTONE
+
+# Edge cases - mixed case
+Firm Clay
+Dense Sand
+Strong Limestone
+FiRm ClAy
+
+# Edge cases - extra whitespace
+Firm  CLAY
+Dense   SAND
+Strong    LIMESTONE
+  Firm CLAY
+Firm CLAY  
+
+# Edge cases - very long descriptions
+Firm to stiff brown moist high plasticity slightly sandy slightly silty slightly gravelly fine to medium CLAY with occasional pebbles
+Very dense gray dry slightly silty slightly clayey fine to coarse SAND and GRAVEL
+Strong slightly weathered jointed fractured bedded gray LIMESTONE with calcite veins
+
+# Edge cases - unusual but valid
+Very very soft CLAY
+Extremely extremely strong GRANITE
+
+# Edge cases - boundary conditions
+Very soft to soft CLAY
+Soft to very soft CLAY
+Very dense to dense SAND
+
+# Edge cases - multiple colors
+Dark gray brown CLAY
+Light gray white SAND
+Reddish brown yellow CLAY
+
+# Edge cases - special characters (should handle or reject gracefully)
+Firm CLAY (with shells)
+Dense SAND [weathered]
+Strong LIMESTONE / SANDSTONE
+
+# Edge cases - numbers (should handle or reject)
+Firm CLAY 50kPa
+Dense SAND N=35
+Strong LIMESTONE 75MPa
+
+# Edge cases - abbreviations
+Fr. CLAY
+Den. SAND
+Str. LIMESTONE
+
+# Edge cases - British vs American spelling
+Grey firm CLAY
+Gray firm CLAY
+
+# Edge cases - hyphenated terms
+Non-plastic CLAY
+Fine-grained SAND
+Well-graded GRAVEL
+
+# Edge cases - peat and organic materials
+Very soft black fibrous PEAT
+Firm dark brown amorphous PEAT
+Soft brown ORGANIC soil
+Firm ORGANIC CLAY
+
+# Edge cases - fill and made ground
+Firm CLAY (made ground)
+Dense SAND (fill)
+
+# Edge cases - weathered soil materials
+Completely weathered GRANITE (now clayey SAND)
+Highly weathered BASALT (now silty CLAY)

@@ -5,23 +5,52 @@ const lexer = @import("lexer.zig");
 const strength_db = @import("strength_db.zig");
 const constituent_db = @import("constituent_db.zig");
 const validation = @import("validation.zig");
+const generator = @import("generator.zig");
+const fuzzy = @import("fuzzy.zig");
+const anomaly = @import("anomaly.zig");
 
+// Re-export submodules for testing
+pub const Lexer = lexer.Lexer;
+pub const Token = lexer.Token;
+pub const TokenType = lexer.TokenType;
+pub const StrengthDatabase = strength_db.StrengthDatabase;
+pub const StrengthParameterType = strength_db.StrengthParameterType;
+pub const ConstituentDatabase = constituent_db.ConstituentDatabase;
+pub const Validator = validation.Validator;
+
+// Re-export anomaly detection
+pub const AnomalyDetector = anomaly.AnomalyDetector;
+pub const AnomalyType = anomaly.AnomalyType;
+pub const Severity = anomaly.Severity;
+pub const Anomaly = anomaly.Anomaly;
+pub const AnomalyResult = anomaly.AnomalyResult;
+
+// Re-export types
 pub const SoilDescription = types.SoilDescription;
-const MaterialType = types.MaterialType;
-const SoilType = types.SoilType;
-const RockType = types.RockType;
-const Consistency = types.Consistency;
-const Density = types.Density;
-const RockStrength = types.RockStrength;
-const WeatheringGrade = types.WeatheringGrade;
-const RockStructure = types.RockStructure;
-const SecondaryConstituent = types.SecondaryConstituent;
-const Token = lexer.Token;
-const TokenType = lexer.TokenType;
-const Lexer = lexer.Lexer;
-const StrengthDatabase = strength_db.StrengthDatabase;
-const ConstituentDatabase = constituent_db.ConstituentDatabase;
-const Validator = validation.Validator;
+pub const MaterialType = types.MaterialType;
+pub const SoilType = types.SoilType;
+pub const RockType = types.RockType;
+pub const Consistency = types.Consistency;
+pub const Density = types.Density;
+pub const RockStrength = types.RockStrength;
+pub const WeatheringGrade = types.WeatheringGrade;
+pub const RockStructure = types.RockStructure;
+pub const SecondaryConstituent = types.SecondaryConstituent;
+
+// Re-export generator functions
+pub const generate = generator.generate;
+pub const generateConcise = generator.generateConcise;
+pub const generateVerbose = generator.generateVerbose;
+pub const generateBS5930 = generator.generateBS5930;
+pub const generateFromProperties = generator.generateFromProperties;
+pub const generateRandom = generator.generateRandom;
+pub const generateVariations = generator.generateVariations;
+pub const generateWithStrength = generator.generateWithStrength;
+pub const generateLabel = generator.generateLabel;
+
+// Re-export fuzzy functions
+pub const levenshteinDistance = fuzzy.levenshteinDistance;
+pub const similarityRatio = fuzzy.similarityRatio;
 
 pub const Parser = struct {
     allocator: std.mem.Allocator,

@@ -1,0 +1,119 @@
+# Valid soil descriptions - cohesive soils
+Firm CLAY
+Soft CLAY
+Stiff CLAY
+Very soft CLAY
+Very stiff CLAY
+Hard CLAY
+Soft to firm CLAY
+Firm to stiff CLAY
+Stiff to very stiff CLAY
+Firm brown CLAY
+Stiff gray CLAY
+Firm moist CLAY
+Firm high plasticity CLAY
+Stiff low plasticity CLAY
+
+# Valid soil descriptions - cohesive with secondary constituents
+Firm slightly sandy CLAY
+Stiff moderately sandy CLAY
+Firm very sandy CLAY
+Soft slightly silty CLAY
+Firm slightly sandy slightly gravelly CLAY
+Stiff moderately sandy gravelly CLAY
+
+# Valid soil descriptions - granular soils
+Dense SAND
+Loose SAND
+Very loose SAND
+Medium dense SAND
+Very dense SAND
+Dense GRAVEL
+Loose GRAVEL
+Medium dense GRAVEL
+
+# Valid soil descriptions - granular with secondary constituents
+Dense slightly silty SAND
+Very dense moderately silty SAND
+Medium dense slightly clayey SAND
+Dense fine SAND
+Loose medium SAND
+Very dense coarse SAND
+Dense fine to medium SAND
+
+# Valid soil descriptions - mixed soils
+Medium dense sandy GRAVEL
+Dense gravelly SAND
+Firm silty CLAY
+Stiff clayey SILT
+
+# Valid rock descriptions
+Strong LIMESTONE
+Weak LIMESTONE
+Very weak LIMESTONE
+Moderately weak LIMESTONE
+Moderately strong LIMESTONE
+Very strong LIMESTONE
+Extremely strong LIMESTONE
+
+# Valid rock descriptions - with weathering
+Strong fresh LIMESTONE
+Strong slightly weathered LIMESTONE
+Moderately strong moderately weathered SANDSTONE
+Weak highly weathered MUDSTONE
+Very weak completely weathered SHALE
+
+# Valid rock descriptions - with structure
+Strong jointed LIMESTONE
+Moderately strong bedded SANDSTONE
+Strong massive GRANITE
+Weak fractured MUDSTONE
+Strong foliated SCHIST
+Moderately strong laminated SHALE
+
+# Valid rock descriptions - complex
+Strong slightly weathered jointed LIMESTONE
+Moderately strong moderately weathered bedded SANDSTONE
+Very strong fresh massive GRANITE
+Weak highly weathered fractured MUDSTONE
+
+# Valid descriptions - various rock types
+Strong SANDSTONE
+Moderately strong MUDSTONE
+Very strong GRANITE
+Strong BASALT
+Moderately weak CHALK
+Strong DOLOMITE
+Very strong QUARTZITE
+Moderately strong SLATE
+Strong SCHIST
+Very strong GNEISS
+Strong MARBLE
+Moderately strong CONGLOMERATE
+Strong BRECCIA
+
+# Valid descriptions - with colors and moisture
+Brown firm CLAY
+Gray stiff CLAY
+Dark gray firm CLAY
+Reddish brown firm CLAY
+Yellowish brown stiff CLAY
+Black soft PEAT
+Moist firm CLAY
+Wet soft CLAY
+Dry dense SAND
+
+# Valid descriptions - with particle size
+Dense fine SAND
+Very dense medium SAND
+Dense coarse SAND
+Medium dense fine to medium SAND
+Dense medium to coarse SAND
+Loose fine to coarse SAND
+
+# Valid descriptions - organic soils
+Soft PEAT
+Firm ORGANIC
+Very soft PEAT
+Soft brown PEAT
+Firm dark brown ORGANIC

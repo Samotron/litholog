@@ -57,14 +57,119 @@ pub fn build(b: *std.Build) void {
     const version_cmd = b.addWriteFile("VERSION", version.VERSION_STRING);
     version_step.dependOn(&version_cmd.step);
 
-    // Tests
+    // Create a module for the parser that can be imported by tests
+    const parser_module = b.addModule("parser", .{
+        .root_source_file = b.path("src/parser/bs5930.zig"),
+    });
+
+    // Tests - individual test files
+    const lexer_tests = b.addTest(.{
+        .root_source_file = b.path("tests/lexer_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    lexer_tests.root_module.addImport("parser", parser_module);
+    const run_lexer_tests = b.addRunArtifact(lexer_tests);
+    const test_lexer_step = b.step("test-lexer", "Run lexer tests");
+    test_lexer_step.dependOn(&run_lexer_tests.step);
+
+    const parser_tests = b.addTest(.{
+        .root_source_file = b.path("tests/parser_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    parser_tests.root_module.addImport("parser", parser_module);
+    const run_parser_tests = b.addRunArtifact(parser_tests);
+    const test_parser_step = b.step("test-parser", "Run parser tests");
+    test_parser_step.dependOn(&run_parser_tests.step);
+
+    const validation_tests = b.addTest(.{
+        .root_source_file = b.path("tests/validation_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    validation_tests.root_module.addImport("parser", parser_module);
+    const run_validation_tests = b.addRunArtifact(validation_tests);
+    const test_validation_step = b.step("test-validation", "Run validation tests");
+    test_validation_step.dependOn(&run_validation_tests.step);
+
+    const strength_db_tests = b.addTest(.{
+        .root_source_file = b.path("tests/strength_db_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    strength_db_tests.root_module.addImport("parser", parser_module);
+    const run_strength_db_tests = b.addRunArtifact(strength_db_tests);
+    const test_strength_db_step = b.step("test-strength-db", "Run strength database tests");
+    test_strength_db_step.dependOn(&run_strength_db_tests.step);
+
+    const constituent_db_tests = b.addTest(.{
+        .root_source_file = b.path("tests/constituent_db_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    constituent_db_tests.root_module.addImport("parser", parser_module);
+    const run_constituent_db_tests = b.addRunArtifact(constituent_db_tests);
+    const test_constituent_db_step = b.step("test-constituent-db", "Run constituent database tests");
+    test_constituent_db_step.dependOn(&run_constituent_db_tests.step);
+
+    const generator_tests = b.addTest(.{
+        .root_source_file = b.path("tests/generator_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    generator_tests.root_module.addImport("parser", parser_module);
+    const run_generator_tests = b.addRunArtifact(generator_tests);
+    const test_generator_step = b.step("test-generator", "Run generator tests");
+    test_generator_step.dependOn(&run_generator_tests.step);
+
+    const fuzzy_tests = b.addTest(.{
+        .root_source_file = b.path("tests/fuzzy_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    fuzzy_tests.root_module.addImport("parser", parser_module);
+    const run_fuzzy_tests = b.addRunArtifact(fuzzy_tests);
+    const test_fuzzy_step = b.step("test-fuzzy", "Run fuzzy matching tests");
+    test_fuzzy_step.dependOn(&run_fuzzy_tests.step);
+
+    const integration_tests = b.addTest(.{
+        .root_source_file = b.path("tests/integration_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    integration_tests.root_module.addImport("parser", parser_module);
+    const run_integration_tests = b.addRunArtifact(integration_tests);
+    const test_integration_step = b.step("test-integration", "Run integration tests");
+    test_integration_step.dependOn(&run_integration_tests.step);
+
+    // Original parser tests
     const lib_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/parser/bs5930.zig"),
         .target = target,
         .optimize = optimize,
     });
-
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
-    const test_step = b.step("test", "Run unit tests");
+
+    // Anomaly detection tests
+    const anomaly_tests = b.addTest(.{
+        .root_source_file = b.path("tests/anomaly_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    anomaly_tests.root_module.addImport("parser", parser_module);
+    const run_anomaly_tests = b.addRunArtifact(anomaly_tests);
+
+    // Aggregate test step - runs all tests
+    const test_step = b.step("test", "Run all unit tests");
+    test_step.dependOn(&run_lexer_tests.step);
+    test_step.dependOn(&run_parser_tests.step);
+    test_step.dependOn(&run_validation_tests.step);
+    test_step.dependOn(&run_strength_db_tests.step);
+    test_step.dependOn(&run_constituent_db_tests.step);
+    test_step.dependOn(&run_generator_tests.step);
+    test_step.dependOn(&run_fuzzy_tests.step);
+    test_step.dependOn(&run_anomaly_tests.step);
+    test_step.dependOn(&run_integration_tests.step);
     test_step.dependOn(&run_lib_unit_tests.step);
 }

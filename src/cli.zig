@@ -8,12 +8,21 @@ pub const CliArgs = struct {
     output_mode: OutputMode = .compact,
     help: bool = false,
     no_color: bool = false,
+    check_anomalies: bool = false,
+    generate_mode: ?GenerateMode = null,
+    generate_count: u32 = 1,
+    generate_seed: u64 = 0,
 
     pub const OutputMode = enum {
         compact,
         verbose,
         pretty,
         summary,
+    };
+
+    pub const GenerateMode = enum {
+        random,
+        variations,
     };
 };
 
@@ -257,6 +266,33 @@ pub const Cli = struct {
                 result.help = true;
             } else if (std.mem.eql(u8, arg, "--no-color") or std.mem.eql(u8, arg, "-C")) {
                 result.no_color = true;
+            } else if (std.mem.eql(u8, arg, "--check-anomalies") or std.mem.eql(u8, arg, "-a")) {
+                result.check_anomalies = true;
+            } else if (std.mem.eql(u8, arg, "--generate") or std.mem.eql(u8, arg, "-g")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingGenerateArgument;
+                }
+                i += 1;
+                const gen_str = args[i];
+                if (std.mem.eql(u8, gen_str, "random")) {
+                    result.generate_mode = .random;
+                } else if (std.mem.eql(u8, gen_str, "variations")) {
+                    result.generate_mode = .variations;
+                } else {
+                    return error.InvalidGenerateMode;
+                }
+            } else if (std.mem.eql(u8, arg, "--count") or std.mem.eql(u8, arg, "-n")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingCountArgument;
+                }
+                i += 1;
+                result.generate_count = try std.fmt.parseInt(u32, args[i], 10);
+            } else if (std.mem.eql(u8, arg, "--seed") or std.mem.eql(u8, arg, "-s")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingSeedArgument;
+                }
+                i += 1;
+                result.generate_seed = try std.fmt.parseInt(u64, args[i], 10);
             } else if (std.mem.eql(u8, arg, "--file") or std.mem.eql(u8, arg, "-f")) {
                 if (i + 1 >= args.len) {
                     return error.MissingFileArgument;
@@ -299,23 +335,99 @@ pub const Cli = struct {
             return;
         }
 
+        // Handle generation mode
+        if (args.generate_mode) |gen_mode| {
+            try self.handleGenerate(gen_mode, args);
+            return;
+        }
+
         if (args.description) |desc| {
-            try self.parseAndPrint(desc, args.output_mode, args.no_color);
+            try self.parseAndPrint(desc, args.output_mode, args.no_color, args.check_anomalies);
         } else if (args.file_path) |file_path| {
-            try self.parseFile(file_path, args.output_mode, args.no_color);
+            try self.parseFile(file_path, args.output_mode, args.no_color, args.check_anomalies);
         } else {
             try self.printHelp();
         }
     }
 
-    fn parseAndPrint(self: *Cli, description: []const u8, mode: CliArgs.OutputMode, no_color: bool) !void {
+    fn parseAndPrint(self: *Cli, description: []const u8, mode: CliArgs.OutputMode, no_color: bool, check_anomalies: bool) !void {
         const result = try self.parser.parse(description);
         defer result.deinit(self.allocator);
 
         try self.printResult(result, mode, no_color);
+
+        // Check for anomalies if requested
+        if (check_anomalies) {
+            try self.checkAndPrintAnomalies(&result);
+        }
     }
 
-    fn parseFile(self: *Cli, file_path: []const u8, mode: CliArgs.OutputMode, no_color: bool) !void {
+    fn checkAndPrintAnomalies(self: *Cli, description: *const bs5930.SoilDescription) !void {
+        var detector = bs5930.AnomalyDetector.init(self.allocator);
+        var anomaly_result = try detector.detect(description);
+        defer anomaly_result.deinit(self.allocator);
+
+        const stdout = std.io.getStdOut().writer();
+
+        if (anomaly_result.has_anomalies) {
+            try stdout.print("\nAnomalies Detected (Severity: {s}):\n", .{anomaly_result.overall_severity.toString()});
+            for (anomaly_result.anomalies) |anomaly| {
+                try stdout.print("  [{s}] {s}: {s}\n", .{
+                    anomaly.severity.toString(),
+                    anomaly.anomaly_type.toString(),
+                    anomaly.description,
+                });
+                if (anomaly.suggestion) |suggestion| {
+                    try stdout.print("    Suggestion: {s}\n", .{suggestion});
+                }
+            }
+        } else {
+            try stdout.print("\nNo anomalies detected.\n", .{});
+        }
+    }
+
+    fn handleGenerate(self: *Cli, gen_mode: CliArgs.GenerateMode, args: CliArgs) !void {
+        const stdout = std.io.getStdOut().writer();
+
+        switch (gen_mode) {
+            .random => {
+                // Generate random descriptions
+                var i: u32 = 0;
+                while (i < args.generate_count) : (i += 1) {
+                    const seed = if (args.generate_seed == 0)
+                        @as(u64, @intCast(std.time.timestamp())) + i
+                    else
+                        args.generate_seed + i;
+
+                    const generated = try bs5930.generateRandom(self.allocator, seed);
+                    defer self.allocator.free(generated);
+                    try stdout.print("{s}\n", .{generated});
+                }
+            },
+            .variations => {
+                // Generate variations of a description
+                if (args.description) |desc| {
+                    const result = try self.parser.parse(desc);
+                    defer result.deinit(self.allocator);
+
+                    const variations = try bs5930.generateVariations(result, self.allocator);
+                    defer {
+                        for (variations) |v| self.allocator.free(v);
+                        self.allocator.free(variations);
+                    }
+
+                    for (variations) |variation| {
+                        try stdout.print("{s}\n", .{variation});
+                    }
+                } else {
+                    try stdout.print("Error: --generate variations requires a description argument\n", .{});
+                    return error.MissingDescription;
+                }
+            },
+        }
+    }
+
+    fn parseFile(self: *Cli, file_path: []const u8, mode: CliArgs.OutputMode, no_color: bool, check_anomalies: bool) !void {
         const file = std.fs.cwd().openFile(file_path, .{}) catch |err| switch (err) {
             error.FileNotFound => {
                 std.debug.print("Error: File not found: {s}\n", .{file_path});
@@ -333,7 +445,7 @@ pub const Cli = struct {
             const trimmed = std.mem.trim(u8, line, " \t\r\n");
             if (trimmed.len == 0) continue;
 
-            try self.parseAndPrint(trimmed, mode, no_color);
+            try self.parseAndPrint(trimmed, mode, no_color, check_anomalies);
         }
     }
 
@@ -446,12 +558,20 @@ pub const Cli = struct {
             \\    -f, --file <FILE>       Parse descriptions from file (one per line)
             \\    -m, --mode <MODE>       Output format (default: compact)
             \\    -C, --no-color          Disable colorized output
+            \\    -a, --check-anomalies   Check for anomalies in descriptions
+            \\    -g, --generate <MODE>   Generate descriptions (random|variations)
+            \\    -n, --count <N>         Number of descriptions to generate (default: 1)
+            \\    -s, --seed <SEED>       Seed for random generation (default: timestamp)
             \\
             \\OUTPUT MODES:
             \\    compact                 Single-line JSON (machine-readable)
             \\    verbose                 JSON with confidence and warnings
             \\    pretty                  Colorized, indented JSON (like jq)
             \\    summary                 Human-readable key information
+            \\
+            \\GENERATE MODES:
+            \\    random                  Generate random valid descriptions
+            \\    variations              Generate variations of input description
             \\
             \\ENVIRONMENT VARIABLES:
             \\    NO_COLOR                Disable colors (universal standard)
@@ -466,6 +586,18 @@ pub const Cli = struct {
             \\    litholog "Dense SAND" --mode summary
             \\    litholog "Strong LIMESTONE" --mode pretty
             \\    litholog "Soft CLAY" --mode compact > data.json
+            \\    
+            \\    # Anomaly detection
+            \\    litholog "Dense CLAY" --check-anomalies
+            \\    litholog --file descriptions.txt --check-anomalies --mode summary
+            \\    
+            \\    # Generate random descriptions
+            \\    litholog --generate random --count 5
+            \\    litholog --generate random --count 10 --seed 12345
+            \\    
+            \\    # Generate variations
+            \\    litholog "Firm CLAY" --generate variations
+            \\    litholog "Dense SAND" --generate variations --mode pretty
             \\    
             \\    # File processing
             \\    litholog --file descriptions.txt --mode summary
@@ -493,6 +625,9 @@ pub const Cli = struct {
             \\    • Strength parameter estimation with confidence
             \\    • Constituent proportion analysis
             \\    • Validation and warning system
+            \\    • Anomaly detection with severity levels
+            \\    • Random description generation
+            \\    • Description variation generation
             \\
         , .{});
     }

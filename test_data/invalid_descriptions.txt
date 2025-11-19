@@ -1,0 +1,74 @@
+# Invalid descriptions - wrong strength descriptors for soil type
+Dense CLAY
+Loose CLAY
+Very dense CLAY
+Medium dense CLAY
+Firm SAND
+Stiff SAND
+Very stiff SAND
+Soft GRAVEL
+Firm to stiff GRAVEL
+
+# Invalid descriptions - plasticity on granular soils
+High plasticity SAND
+Low plasticity GRAVEL
+Intermediate plasticity SAND
+Non plastic GRAVEL
+
+# Invalid descriptions - rock strength on soils
+Strong CLAY
+Moderately strong SILT
+Very strong SAND
+Weak GRAVEL
+Very weak CLAY
+
+# Invalid descriptions - material misclassification
+Weathered CLAY
+Jointed SAND
+Massive GRAVEL
+Bedded CLAY
+
+# Invalid descriptions - conflicting properties
+Very soft hard CLAY
+Dense loose SAND
+Strong weak LIMESTONE
+
+# Invalid descriptions - nonsensical combinations
+Firm GRANITE
+Stiff LIMESTONE
+Dense SANDSTONE
+Very loose MUDSTONE
+
+# Invalid descriptions - missing primary material
+Firm slightly sandy
+Dense moderately silty
+Strong slightly weathered
+
+# Invalid descriptions - impossible geology
+Plastic LIMESTONE
+Moist fresh GRANITE
+Wet extremely strong BASALT
+
+# Invalid descriptions - conflicting secondary constituents
+Very sandy very silty very gravelly CLAY
+
+# Invalid descriptions - typos and misspellings
+Firm CALY
+Dence SAND
+Stong LIMESTONE
+Moderatly weak SANDSTONE
+
+# Invalid descriptions - wrong descriptor order
+CLAY firm
+SAND dense
+LIMESTONE strong
+
+# Invalid descriptions - incomplete ranges
+Soft to CLAY
+Firm to SAND
+to stiff CLAY
+
+# Invalid descriptions - duplicate descriptors
+Firm firm CLAY
+Dense dense SAND
+Strong strong LIMESTONE
