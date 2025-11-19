@@ -155,6 +155,7 @@ test "integration: performance - parse 100 descriptions" {
     const end = std.time.milliTimestamp();
 
     const elapsed = end - start;
-    // Should complete in reasonable time (less than 1 second)
-    try testing.expect(elapsed < 1000);
+    // Should complete in reasonable time (less than 500ms)
+    // Note: Fuzzy matching for single words adds minimal overhead
+    try testing.expect(elapsed < 500);
 }

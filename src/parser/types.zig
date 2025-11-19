@@ -530,6 +530,12 @@ pub const SecondaryConstituent = struct {
     }
 };
 
+pub const SpellingCorrection = struct {
+    original: []const u8,
+    corrected: []const u8,
+    similarity_score: f32,
+};
+
 pub const SoilDescription = struct {
     raw_description: []const u8,
     material_type: MaterialType,
@@ -556,6 +562,7 @@ pub const SoilDescription = struct {
     structure: ?[]const u8 = null,
     confidence: f32 = 1.0,
     warnings: [][]const u8 = &[_][]const u8{},
+    spelling_corrections: []SpellingCorrection = &[_]SpellingCorrection{},
     is_valid: bool = true,
 
     pub fn deinit(self: SoilDescription, allocator: std.mem.Allocator) void {
@@ -567,6 +574,13 @@ pub const SoilDescription = struct {
             allocator.free(warning);
         }
         allocator.free(self.warnings);
+
+        // Free spelling corrections
+        for (self.spelling_corrections) |correction| {
+            allocator.free(correction.original);
+            allocator.free(correction.corrected);
+        }
+        allocator.free(self.spelling_corrections);
 
         // Free constituent guidance if present
         if (self.constituent_guidance) |guidance| {

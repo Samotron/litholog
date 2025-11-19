@@ -5,13 +5,38 @@ const builtin = @import("builtin");
 pub const CliArgs = struct {
     description: ?[]const u8 = null,
     file_path: ?[]const u8 = null,
+    csv_path: ?[]const u8 = null,
+    csv_output_path: ?[]const u8 = null,
+    csv_column: ?[]const u8 = null,
+    csv_output_columns: ?[]const []const u8 = null,
+    csv_no_header: bool = false,
     output_mode: OutputMode = .compact,
     help: bool = false,
     no_color: bool = false,
     check_anomalies: bool = false,
+    check_compliance: bool = false,
     generate_mode: ?GenerateMode = null,
     generate_count: u32 = 1,
     generate_seed: u64 = 0,
+    // Unit identification options
+    identify_units: bool = false,
+    borehole_id_column: ?[]const u8 = null,
+    depth_top_column: ?[]const u8 = null,
+    depth_bottom_column: ?[]const u8 = null,
+    // Spatial analysis options
+    spatial_analysis: bool = false,
+    x_column: ?[]const u8 = null,
+    y_column: ?[]const u8 = null,
+    z_column: ?[]const u8 = null,
+    spatial_cluster: bool = false,
+    cluster_epsilon: f64 = 10.0,
+    cluster_min_points: usize = 3,
+    // Excel options
+    excel_output: bool = false,
+    freeze_header: bool = false,
+    auto_filter: bool = false,
+    sheet_name: ?[]const u8 = null,
+    allocator: ?std.mem.Allocator = null,
 
     pub const OutputMode = enum {
         compact,
@@ -24,6 +49,14 @@ pub const CliArgs = struct {
         random,
         variations,
     };
+
+    pub fn deinit(self: *CliArgs) void {
+        if (self.csv_output_columns) |cols| {
+            if (self.allocator) |allocator| {
+                allocator.free(cols);
+            }
+        }
+    }
 };
 
 pub const Cli = struct {
@@ -255,8 +288,7 @@ pub const Cli = struct {
     }
 
     pub fn parseArgs(self: *Cli, args: [][:0]u8) !CliArgs {
-        _ = self;
-        var result = CliArgs{};
+        var result = CliArgs{ .allocator = self.allocator };
         var i: usize = 1; // Skip program name
 
         while (i < args.len) {
@@ -268,6 +300,8 @@ pub const Cli = struct {
                 result.no_color = true;
             } else if (std.mem.eql(u8, arg, "--check-anomalies") or std.mem.eql(u8, arg, "-a")) {
                 result.check_anomalies = true;
+            } else if (std.mem.eql(u8, arg, "--check-compliance") or std.mem.eql(u8, arg, "--compliance")) {
+                result.check_compliance = true;
             } else if (std.mem.eql(u8, arg, "--generate") or std.mem.eql(u8, arg, "-g")) {
                 if (i + 1 >= args.len) {
                     return error.MissingGenerateArgument;
@@ -299,6 +333,106 @@ pub const Cli = struct {
                 }
                 i += 1;
                 result.file_path = args[i];
+            } else if (std.mem.eql(u8, arg, "--csv")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingCsvArgument;
+                }
+                i += 1;
+                result.csv_path = args[i];
+            } else if (std.mem.eql(u8, arg, "--csv-output")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingCsvOutputArgument;
+                }
+                i += 1;
+                result.csv_output_path = args[i];
+            } else if (std.mem.eql(u8, arg, "--column")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingColumnArgument;
+                }
+                i += 1;
+                result.csv_column = args[i];
+            } else if (std.mem.eql(u8, arg, "--output-columns")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingOutputColumnsArgument;
+                }
+                i += 1;
+                // Parse comma-separated list of output columns
+                const cols_str = args[i];
+                var cols = std.ArrayList([]const u8).init(self.allocator);
+                var col_iter = std.mem.splitScalar(u8, cols_str, ',');
+                while (col_iter.next()) |col| {
+                    const trimmed = std.mem.trim(u8, col, " \t");
+                    try cols.append(trimmed);
+                }
+                result.csv_output_columns = try cols.toOwnedSlice();
+            } else if (std.mem.eql(u8, arg, "--csv-no-header")) {
+                result.csv_no_header = true;
+            } else if (std.mem.eql(u8, arg, "--identify-units")) {
+                result.identify_units = true;
+            } else if (std.mem.eql(u8, arg, "--borehole-id")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingBoreholeIdArgument;
+                }
+                i += 1;
+                result.borehole_id_column = args[i];
+            } else if (std.mem.eql(u8, arg, "--depth-top")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingDepthTopArgument;
+                }
+                i += 1;
+                result.depth_top_column = args[i];
+            } else if (std.mem.eql(u8, arg, "--depth-bottom")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingDepthBottomArgument;
+                }
+                i += 1;
+                result.depth_bottom_column = args[i];
+            } else if (std.mem.eql(u8, arg, "--spatial-analysis")) {
+                result.spatial_analysis = true;
+            } else if (std.mem.eql(u8, arg, "--x-column")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingXColumnArgument;
+                }
+                i += 1;
+                result.x_column = args[i];
+            } else if (std.mem.eql(u8, arg, "--y-column")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingYColumnArgument;
+                }
+                i += 1;
+                result.y_column = args[i];
+            } else if (std.mem.eql(u8, arg, "--z-column")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingZColumnArgument;
+                }
+                i += 1;
+                result.z_column = args[i];
+            } else if (std.mem.eql(u8, arg, "--spatial-cluster")) {
+                result.spatial_cluster = true;
+            } else if (std.mem.eql(u8, arg, "--cluster-epsilon")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingClusterEpsilonArgument;
+                }
+                i += 1;
+                result.cluster_epsilon = try std.fmt.parseFloat(f64, args[i]);
+            } else if (std.mem.eql(u8, arg, "--cluster-min-points")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingClusterMinPointsArgument;
+                }
+                i += 1;
+                result.cluster_min_points = try std.fmt.parseInt(usize, args[i], 10);
+            } else if (std.mem.eql(u8, arg, "--excel-output")) {
+                result.excel_output = true;
+            } else if (std.mem.eql(u8, arg, "--freeze-header")) {
+                result.freeze_header = true;
+            } else if (std.mem.eql(u8, arg, "--auto-filter")) {
+                result.auto_filter = true;
+            } else if (std.mem.eql(u8, arg, "--sheet-name")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingSheetNameArgument;
+                }
+                i += 1;
+                result.sheet_name = args[i];
             } else if (std.mem.eql(u8, arg, "--mode") or std.mem.eql(u8, arg, "-m")) {
                 if (i + 1 >= args.len) {
                     return error.MissingModeArgument;
@@ -335,6 +469,12 @@ pub const Cli = struct {
             return;
         }
 
+        // Handle CSV processing mode
+        if (args.csv_path) |csv_path| {
+            try self.processCsv(csv_path, args);
+            return;
+        }
+
         // Handle generation mode
         if (args.generate_mode) |gen_mode| {
             try self.handleGenerate(gen_mode, args);
@@ -343,11 +483,90 @@ pub const Cli = struct {
 
         if (args.description) |desc| {
             try self.parseAndPrint(desc, args.output_mode, args.no_color, args.check_anomalies);
+            if (args.check_compliance) {
+                try self.checkCompliance(desc);
+            }
         } else if (args.file_path) |file_path| {
             try self.parseFile(file_path, args.output_mode, args.no_color, args.check_anomalies);
         } else {
             try self.printHelp();
         }
+    }
+
+    fn processCsv(self: *Cli, csv_path: []const u8, args: CliArgs) !void {
+        const csv_processor = @import("csv_processor.zig");
+
+        // Validate required arguments
+        if (args.csv_column == null) {
+            std.debug.print("Error: --column is required when using --csv\n", .{});
+            return error.MissingCsvColumn;
+        }
+
+        const output_path = args.csv_output_path orelse {
+            std.debug.print("Error: --csv-output is required when using --csv\n", .{});
+            return error.MissingCsvOutput;
+        };
+
+        // For unit identification, validate additional columns
+        if (args.identify_units) {
+            if (args.borehole_id_column == null) {
+                std.debug.print("Error: --borehole-id is required when using --identify-units\n", .{});
+                return error.MissingBoreholeIdColumn;
+            }
+            if (args.depth_top_column == null) {
+                std.debug.print("Error: --depth-top is required when using --identify-units\n", .{});
+                return error.MissingDepthTopColumn;
+            }
+            if (args.depth_bottom_column == null) {
+                std.debug.print("Error: --depth-bottom is required when using --identify-units\n", .{});
+                return error.MissingDepthBottomColumn;
+            }
+        }
+
+        // For spatial analysis, validate additional columns
+        if (args.spatial_analysis) {
+            if (args.x_column == null or args.y_column == null or args.z_column == null) {
+                std.debug.print("Error: --x-column, --y-column, and --z-column are required when using --spatial-analysis\n", .{});
+                return error.MissingSpatialColumns;
+            }
+        }
+
+        const output_columns = if (args.identify_units)
+            &[_][]const u8{} // Empty for unit identification - we'll handle differently
+        else
+            args.csv_output_columns orelse {
+                std.debug.print("Error: --output-columns is required when using --csv\n", .{});
+                return error.MissingOutputColumns;
+            };
+
+        // Process CSV file
+        var processor = csv_processor.CsvProcessor.init(self.allocator);
+        const options = csv_processor.CsvOptions{
+            .input_column = args.csv_column.?,
+            .output_columns = output_columns,
+            .has_header = !args.csv_no_header,
+            .delimiter = ',',
+            .identify_units = args.identify_units,
+            .borehole_id_column = args.borehole_id_column,
+            .depth_top_column = args.depth_top_column,
+            .depth_bottom_column = args.depth_bottom_column,
+            .spatial_analysis = args.spatial_analysis,
+            .x_column = args.x_column,
+            .y_column = args.y_column,
+            .z_column = args.z_column,
+            .spatial_cluster = args.spatial_cluster,
+            .cluster_epsilon = args.cluster_epsilon,
+            .cluster_min_points = args.cluster_min_points,
+            .excel_format = args.excel_output,
+            .freeze_header = args.freeze_header,
+            .auto_filter = args.auto_filter,
+            .sheet_name = args.sheet_name,
+        };
+
+        try processor.processFile(csv_path, output_path, options);
+
+        const stdout = std.io.getStdOut().writer();
+        try stdout.print("Successfully processed CSV: {s} -> {s}\n", .{ csv_path, output_path });
     }
 
     fn parseAndPrint(self: *Cli, description: []const u8, mode: CliArgs.OutputMode, no_color: bool, check_anomalies: bool) !void {
@@ -384,6 +603,24 @@ pub const Cli = struct {
         } else {
             try stdout.print("\nNo anomalies detected.\n", .{});
         }
+    }
+
+    fn checkCompliance(self: *Cli, description_text: []const u8) !void {
+        // Parse the description first
+        const result = try self.parser.parse(description_text);
+        defer result.deinit(self.allocator);
+
+        var checker = bs5930.ComplianceChecker.init(self.allocator);
+        var report = try checker.check(&result);
+        defer report.deinit(self.allocator);
+
+        const stdout = std.io.getStdOut().writer();
+        try stdout.writeAll("\n");
+
+        const formatted = try report.format(self.allocator);
+        defer self.allocator.free(formatted);
+
+        try stdout.writeAll(formatted);
     }
 
     fn handleGenerate(self: *Cli, gen_mode: CliArgs.GenerateMode, args: CliArgs) !void {
@@ -550,6 +787,7 @@ pub const Cli = struct {
             \\USAGE:
             \\    litholog [OPTIONS] [DESCRIPTION]        Parse a single description
             \\    litholog --file <FILE> [OPTIONS]        Parse descriptions from file
+            \\    litholog --csv <FILE> [CSV OPTIONS]     Process CSV/Excel file
             \\    litholog tui                             Interactive mode (TUI)
             \\    cat descriptions.txt | litholog [OPTIONS]   Parse from stdin
             \\
@@ -559,9 +797,38 @@ pub const Cli = struct {
             \\    -m, --mode <MODE>       Output format (default: compact)
             \\    -C, --no-color          Disable colorized output
             \\    -a, --check-anomalies   Check for anomalies in descriptions
+            \\    --check-compliance      Check BS 5930:2015 compliance
             \\    -g, --generate <MODE>   Generate descriptions (random|variations)
             \\    -n, --count <N>         Number of descriptions to generate (default: 1)
             \\    -s, --seed <SEED>       Seed for random generation (default: timestamp)
+            \\
+            \\CSV OPTIONS:
+            \\    --csv <FILE>            Input CSV file to process
+            \\    --csv-output <FILE>     Output CSV file with results
+            \\    --column <NAME|INDEX>   Column name (or 0-based index) containing descriptions
+            \\    --output-columns <COLS> Comma-separated list of result columns to add
+            \\    --csv-no-header         Treat file as having no header row
+            \\
+            \\EXCEL OPTIONS:
+            \\    --excel-output          Export to Excel format (.xlsx)
+            \\    --freeze-header         Freeze header row in Excel
+            \\    --auto-filter           Enable auto-filter in Excel
+            \\    --sheet-name <NAME>     Set worksheet name (default: Sheet1)
+            \\
+            \\UNIT IDENTIFICATION OPTIONS:
+            \\    --identify-units        Identify geological units across boreholes
+            \\    --borehole-id <COL>     Column name (or index) for borehole ID
+            \\    --depth-top <COL>       Column name (or index) for depth top (m)
+            \\    --depth-bottom <COL>    Column name (or index) for depth bottom (m)
+            \\
+            \\SPATIAL ANALYSIS OPTIONS:
+            \\    --spatial-analysis      Enable spatial analysis with X,Y,Z coordinates
+            \\    --x-column <COL>        Column name for X coordinate (easting, m)
+            \\    --y-column <COL>        Column name for Y coordinate (northing, m)
+            \\    --z-column <COL>        Column name for Z coordinate (elevation, m)
+            \\    --spatial-cluster       Perform spatial clustering (DBSCAN)
+            \\    --cluster-epsilon <D>   Maximum distance for clustering (default: 10.0 m)
+            \\    --cluster-min-points <N> Min points for cluster core (default: 3)
             \\
             \\OUTPUT MODES:
             \\    compact                 Single-line JSON (machine-readable)
@@ -572,6 +839,30 @@ pub const Cli = struct {
             \\GENERATE MODES:
             \\    random                  Generate random valid descriptions
             \\    variations              Generate variations of input description
+            \\
+            \\CSV OUTPUT COLUMNS:
+            \\    material_type           Soil or rock classification
+            \\    consistency             Consistency (very soft to hard)
+            \\    density                 Density (very loose to very dense)
+            \\    primary_soil_type       Primary soil type (clay, silt, sand, gravel)
+            \\    primary_rock_type       Primary rock type (limestone, sandstone, etc.)
+            \\    rock_strength           Rock strength (very weak to extremely strong)
+            \\    weathering_grade        Weathering grade (fresh to completely weathered)
+            \\    color                   Color description
+            \\    moisture_content        Moisture content description
+            \\    confidence              Confidence score (0-1)
+            \\    is_valid                Validation status (true/false)
+            \\    strength_lower          Lower bound of strength parameter
+            \\    strength_upper          Upper bound of strength parameter
+            \\    strength_typical        Typical strength value
+            \\    strength_unit           Unit of strength measurement
+            \\    x_coord                 X coordinate (easting)
+            \\    y_coord                 Y coordinate (northing)
+            \\    z_coord                 Z coordinate (elevation)
+            \\    thickness               Unit thickness (m)
+            \\    mid_depth               Unit midpoint depth (m)
+            \\    elevation               Elevation at unit midpoint (m)
+            \\    json                    Full JSON output
             \\
             \\ENVIRONMENT VARIABLES:
             \\    NO_COLOR                Disable colors (universal standard)
@@ -587,9 +878,49 @@ pub const Cli = struct {
             \\    litholog "Strong LIMESTONE" --mode pretty
             \\    litholog "Soft CLAY" --mode compact > data.json
             \\    
+            \\    # CSV processing
+            \\    litholog --csv input.csv --csv-output output.csv \
+            \\             --column "Description" \
+            \\             --output-columns "material_type,consistency,primary_soil_type,confidence"
+            \\    
+            \\    # CSV with index-based column (0-based)
+            \\    litholog --csv data.csv --csv-output results.csv \
+            \\             --column 2 \
+            \\             --output-columns "material_type,json"
+            \\    
+            \\    # CSV without header row
+            \\    litholog --csv input.csv --csv-output output.csv \
+            \\             --column 0 --csv-no-header \
+            \\             --output-columns "primary_soil_type,density"
+            \\    
+            \\    # Excel export
+            \\    litholog --csv input.csv --csv-output output.xlsx \
+            \\             --column "Description" \
+            \\             --output-columns "material_type,consistency,confidence" \
+            \\             --excel-output --freeze-header --auto-filter
+            \\    
+            \\    # Excel with custom sheet name
+            \\    litholog --csv input.csv --csv-output output.xlsx \
+            \\             --column "Description" \
+            \\             --output-columns "material_type,primary_soil_type" \
+            \\             --excel-output --sheet-name "Parsed_Results"
+            \\    
+            \\    # Geological unit identification
+            \\    litholog --csv boreholes.csv --csv-output results.csv \
+            \\             --column "Description" \
+            \\             --identify-units \
+            \\             --borehole-id "BH_ID" \
+            \\             --depth-top "Depth_Top" \
+            \\             --depth-bottom "Depth_Bottom"
+            \\    
             \\    # Anomaly detection
             \\    litholog "Dense CLAY" --check-anomalies
             \\    litholog --file descriptions.txt --check-anomalies --mode summary
+            \\    
+            \\    # Compliance checking
+            \\    litholog "Firm CLAY" --check-compliance
+            \\    litholog "Medium firm brown CLAY" --check-compliance
+            \\    litholog "Soft GRAVEL" --check-compliance
             \\    
             \\    # Generate random descriptions
             \\    litholog --generate random --count 5
@@ -628,6 +959,7 @@ pub const Cli = struct {
             \\    • Anomaly detection with severity levels
             \\    • Random description generation
             \\    • Description variation generation
+            \\    • CSV/Excel file processing with configurable output columns
             \\
         , .{});
     }

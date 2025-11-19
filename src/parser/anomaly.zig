@@ -18,6 +18,7 @@ pub const AnomalyType = enum {
     invalid_transition_range, // e.g., "hard to soft" (backwards range)
     excessive_constituents, // too many secondary constituents
     duplicate_constituents, // same constituent listed multiple times
+    spelling_correction, // automatic spelling correction applied
 
     pub fn toString(self: AnomalyType) []const u8 {
         return switch (self) {
@@ -29,6 +30,7 @@ pub const AnomalyType = enum {
             .invalid_transition_range => "Invalid transition range",
             .excessive_constituents => "Excessive secondary constituents",
             .duplicate_constituents => "Duplicate constituents",
+            .spelling_correction => "Spelling correction applied",
         };
     }
 
@@ -42,6 +44,7 @@ pub const AnomalyType = enum {
             .unusual_constituent_combination => .medium,
             .excessive_constituents => .low,
             .duplicate_constituents => .low,
+            .spelling_correction => .low,
         };
     }
 };
@@ -131,6 +134,9 @@ pub const AnomalyDetector = struct {
 
         // Check for duplicate constituents
         try self.checkDuplicateConstituents(description, &anomalies);
+
+        // Check for spelling corrections
+        try self.checkSpellingCorrections(description, &anomalies);
 
         const anomaly_slice = try anomalies.toOwnedSlice();
 
@@ -429,6 +435,26 @@ pub const AnomalyDetector = struct {
                     });
                 }
             }
+        }
+    }
+
+    fn checkSpellingCorrections(
+        self: *AnomalyDetector,
+        description: *const SoilDescription,
+        anomalies: *std.ArrayList(Anomaly),
+    ) !void {
+        for (description.spelling_corrections) |correction| {
+            const desc = try std.fmt.allocPrint(
+                self.allocator,
+                "Spelling corrected: '{s}' -> '{s}' (similarity: {d:.2})",
+                .{ correction.original, correction.corrected, correction.similarity_score },
+            );
+            try anomalies.append(Anomaly{
+                .anomaly_type = .spelling_correction,
+                .severity = .low,
+                .description = desc,
+                .suggestion = null,
+            });
         }
     }
 

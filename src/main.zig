@@ -27,7 +27,7 @@ pub fn main() !void {
 
     // Default to CLI mode
     var litholog_cli = cli.Cli.init(allocator);
-    const cli_args = litholog_cli.parseArgs(args) catch |err| switch (err) {
+    var cli_args = litholog_cli.parseArgs(args) catch |err| switch (err) {
         error.MissingFileArgument => {
             std.debug.print("Error: --file option requires a file path\n", .{});
             return;
@@ -46,6 +46,7 @@ pub fn main() !void {
         },
         else => return err,
     };
+    defer cli_args.deinit();
 
     try litholog_cli.run(cli_args);
 }

@@ -1,0 +1,15 @@
+BH_ID,Depth_Top,Depth_Bottom,Description
+BH01,0.0,1.5,Firm brown slightly sandy CLAY
+BH01,1.5,3.0,Medium dense brown slightly silty SAND and GRAVEL
+BH01,3.0,5.5,Stiff grey CLAY
+BH02,0.0,1.2,Firm to stiff brown sandy CLAY
+BH02,1.2,2.8,Dense brown SAND and GRAVEL
+BH02,2.8,6.0,Very stiff grey CLAY
+BH03,0.0,1.0,Firm brown sandy gravelly CLAY
+BH03,1.0,3.5,Medium dense to dense brown silty fine to coarse SAND and GRAVEL
+BH03,3.5,5.0,Stiff to very stiff grey silty CLAY
+BH04,1.5,3.2,Dense brown slightly silty GRAVEL and SAND
+BH04,3.2,7.0,Very stiff grey CLAY
+BH05,0.0,0.8,Firm brown slightly sandy CLAY
+BH05,0.8,2.5,Medium dense brown SAND and GRAVEL
+BH05,2.5,6.5,Stiff grey slightly silty CLAY

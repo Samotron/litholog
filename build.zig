@@ -172,4 +172,35 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_anomaly_tests.step);
     test_step.dependOn(&run_integration_tests.step);
     test_step.dependOn(&run_lib_unit_tests.step);
+
+    // Demo executables
+    const demo_spatial = b.addExecutable(.{
+        .name = "demo_spatial",
+        .root_source_file = b.path("src/demo_spatial.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const demo_spatial_run = b.addRunArtifact(demo_spatial);
+    const demo_spatial_step = b.step("demo-spatial", "Run spatial analysis demo");
+    demo_spatial_step.dependOn(&demo_spatial_run.step);
+
+    const demo_uncertainty = b.addExecutable(.{
+        .name = "demo_uncertainty",
+        .root_source_file = b.path("src/demo_uncertainty.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const demo_uncertainty_run = b.addRunArtifact(demo_uncertainty);
+    const demo_uncertainty_step = b.step("demo-uncertainty", "Run uncertainty quantification demo");
+    demo_uncertainty_step.dependOn(&demo_uncertainty_run.step);
+
+    const demo_clustering = b.addExecutable(.{
+        .name = "demo_clustering_metrics",
+        .root_source_file = b.path("src/demo_clustering_metrics.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const demo_clustering_run = b.addRunArtifact(demo_clustering);
+    const demo_clustering_step = b.step("demo-clustering", "Run clustering quality metrics demo");
+    demo_clustering_step.dependOn(&demo_clustering_run.step);
 }

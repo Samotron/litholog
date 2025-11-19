@@ -8,6 +8,7 @@ const validation = @import("validation.zig");
 const generator = @import("generator.zig");
 const fuzzy = @import("fuzzy.zig");
 const anomaly = @import("anomaly.zig");
+const compliance = @import("compliance.zig");
 
 // Re-export submodules for testing
 pub const Lexer = lexer.Lexer;
@@ -24,6 +25,11 @@ pub const AnomalyType = anomaly.AnomalyType;
 pub const Severity = anomaly.Severity;
 pub const Anomaly = anomaly.Anomaly;
 pub const AnomalyResult = anomaly.AnomalyResult;
+
+// Re-export compliance checking
+pub const ComplianceChecker = compliance.ComplianceChecker;
+pub const ComplianceReport = compliance.ComplianceReport;
+pub const ComplianceIssue = compliance.ComplianceIssue;
 
 // Re-export types
 pub const SoilDescription = types.SoilDescription;
@@ -67,7 +73,16 @@ pub const Parser = struct {
         defer lex.deinit();
 
         const tokens = try lex.tokenize();
-        defer self.allocator.free(tokens);
+        defer {
+            // Free corrected values in tokens before freeing tokens array
+            for (tokens) |token| {
+                if (token.corrected_from) |_| {
+                    // The value field contains the allocated corrected string
+                    self.allocator.free(token.value);
+                }
+            }
+            self.allocator.free(tokens);
+        }
 
         // Determine material type by checking for rock or soil indicators
         const material_type = self.determineMaterialType(tokens);
@@ -117,6 +132,21 @@ pub const Parser = struct {
         var i: usize = 0;
         var secondary_constituents = std.ArrayList(SecondaryConstituent).init(self.allocator);
         defer secondary_constituents.deinit();
+
+        // Collect spelling corrections from tokens
+        var spelling_corrections = std.ArrayList(types.SpellingCorrection).init(self.allocator);
+        defer spelling_corrections.deinit();
+
+        for (tokens) |token| {
+            if (token.corrected_from) |original| {
+                const correction = types.SpellingCorrection{
+                    .original = try self.allocator.dupe(u8, original),
+                    .corrected = try self.allocator.dupe(u8, token.value),
+                    .similarity_score = token.similarity_score.?,
+                };
+                try spelling_corrections.append(correction);
+            }
+        }
 
         while (i < tokens.len) {
             const token = tokens[i];
@@ -250,6 +280,7 @@ pub const Parser = struct {
         }
 
         parsed.secondary_constituents = try secondary_constituents.toOwnedSlice();
+        parsed.spelling_corrections = try spelling_corrections.toOwnedSlice();
 
         // Lookup strength parameters based on parsed properties
         parsed.strength_parameters = StrengthDatabase.getStrengthParameters(
