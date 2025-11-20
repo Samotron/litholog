@@ -925,4 +925,153 @@ pub const SoilDescription = struct {
 
         return result.toOwnedSlice();
     }
+
+    /// Parse a SoilDescription from JSON string
+    pub fn fromJson(json_str: []const u8, allocator: std.mem.Allocator) !SoilDescription {
+        // Parse JSON using std.json
+        const parsed = try std.json.parseFromSlice(
+            std.json.Value,
+            allocator,
+            json_str,
+            .{},
+        );
+        defer parsed.deinit();
+
+        const root = parsed.value;
+        if (root != .object) return error.InvalidJson;
+
+        const obj = root.object;
+
+        // Initialize with defaults
+        var desc = SoilDescription{
+            .raw_description = "from_json",
+            .material_type = .soil,
+        };
+
+        // Parse material_type (required)
+        if (obj.get("material_type")) |mt_value| {
+            if (mt_value != .string) return error.InvalidMaterialType;
+            const mt_str = mt_value.string;
+            if (std.mem.eql(u8, mt_str, "soil")) {
+                desc.material_type = .soil;
+            } else if (std.mem.eql(u8, mt_str, "rock")) {
+                desc.material_type = .rock;
+            } else {
+                return error.InvalidMaterialType;
+            }
+        }
+
+        // Parse raw_description if provided
+        if (obj.get("raw_description")) |rd| {
+            if (rd != .string) return error.InvalidJson;
+            desc.raw_description = try allocator.dupe(u8, rd.string);
+        } else {
+            desc.raw_description = try allocator.dupe(u8, "from_json");
+        }
+
+        // Parse soil properties
+        if (obj.get("consistency")) |c| {
+            if (c != .string) return error.InvalidJson;
+            desc.consistency = Consistency.fromString(c.string);
+        }
+
+        if (obj.get("density")) |d| {
+            if (d != .string) return error.InvalidJson;
+            desc.density = Density.fromString(d.string);
+        }
+
+        if (obj.get("primary_soil_type")) |pst| {
+            if (pst != .string) return error.InvalidJson;
+            desc.primary_soil_type = SoilType.fromString(pst.string);
+        }
+
+        // Parse rock properties
+        if (obj.get("rock_strength")) |rs| {
+            if (rs != .string) return error.InvalidJson;
+            desc.rock_strength = RockStrength.fromString(rs.string);
+        }
+
+        if (obj.get("weathering_grade")) |wg| {
+            if (wg != .string) return error.InvalidJson;
+            desc.weathering_grade = WeatheringGrade.fromString(wg.string);
+        }
+
+        if (obj.get("rock_structure")) |rs| {
+            if (rs != .string) return error.InvalidJson;
+            desc.rock_structure = RockStructure.fromString(rs.string);
+        }
+
+        if (obj.get("primary_rock_type")) |prt| {
+            if (prt != .string) return error.InvalidJson;
+            desc.primary_rock_type = RockType.fromString(prt.string);
+        }
+
+        // Parse enhanced features
+        if (obj.get("color")) |color| {
+            if (color != .string) return error.InvalidJson;
+            desc.color = Color.fromString(color.string);
+        }
+
+        if (obj.get("moisture_content")) |moisture| {
+            if (moisture != .string) return error.InvalidJson;
+            desc.moisture_content = MoistureContent.fromString(moisture.string);
+        }
+
+        if (obj.get("plasticity_index")) |plasticity| {
+            if (plasticity != .string) return error.InvalidJson;
+            desc.plasticity_index = PlasticityIndex.fromString(plasticity.string);
+        }
+
+        if (obj.get("particle_size")) |particle_size| {
+            if (particle_size != .string) return error.InvalidJson;
+            desc.particle_size = ParticleSize.fromString(particle_size.string);
+        }
+
+        // Parse secondary constituents
+        if (obj.get("secondary_constituents")) |sc_array| {
+            if (sc_array != .array) return error.InvalidJson;
+            const constituents_list = sc_array.array;
+
+            if (constituents_list.items.len > 0) {
+                var constituents = try allocator.alloc(SecondaryConstituent, constituents_list.items.len);
+                for (constituents_list.items, 0..) |sc_item, i| {
+                    if (sc_item != .object) return error.InvalidJson;
+                    const sc_obj = sc_item.object;
+
+                    const amount = if (sc_obj.get("amount")) |a| blk: {
+                        if (a != .string) return error.InvalidJson;
+                        break :blk try allocator.dupe(u8, a.string);
+                    } else return error.InvalidJson;
+
+                    const soil_type = if (sc_obj.get("soil_type")) |st| blk: {
+                        if (st != .string) return error.InvalidJson;
+                        break :blk try allocator.dupe(u8, st.string);
+                    } else return error.InvalidJson;
+
+                    constituents[i] = SecondaryConstituent{
+                        .amount = amount,
+                        .soil_type = soil_type,
+                    };
+                }
+                desc.secondary_constituents = constituents;
+            }
+        }
+
+        // Parse confidence if provided
+        if (obj.get("confidence")) |conf| {
+            desc.confidence = switch (conf) {
+                .float => |f| @floatCast(f),
+                .integer => |i| @floatFromInt(i),
+                else => return error.InvalidJson,
+            };
+        }
+
+        // Parse is_valid if provided
+        if (obj.get("is_valid")) |valid| {
+            if (valid != .bool) return error.InvalidJson;
+            desc.is_valid = valid.bool;
+        }
+
+        return desc;
+    }
 };

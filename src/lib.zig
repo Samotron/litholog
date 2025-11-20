@@ -370,3 +370,39 @@ export fn litholog_similarity(s1: [*:0]const u8, s2: [*:0]const u8) f32 {
 
     return fuzzy.similarityRatio(s1_slice, s2_slice, allocator) catch 0.0;
 }
+
+/// Generate a description from JSON string
+export fn litholog_generate_from_json(json_str: [*:0]const u8) ?[*:0]const u8 {
+    const json_slice = std.mem.span(json_str);
+
+    // Parse JSON to SoilDescription
+    const desc = types.SoilDescription.fromJson(json_slice, allocator) catch return null;
+    defer desc.deinit(allocator);
+
+    // Generate standard format
+    const generated = generator.generate(desc, allocator) catch return null;
+    const generated_z = allocator.dupeZ(u8, generated) catch return null;
+    allocator.free(generated);
+    return generated_z.ptr;
+}
+
+/// Generate a description from JSON string with format option
+export fn litholog_generate_from_json_format(json_str: [*:0]const u8, format: i32) ?[*:0]const u8 {
+    const json_slice = std.mem.span(json_str);
+
+    // Parse JSON to SoilDescription
+    const desc = types.SoilDescription.fromJson(json_slice, allocator) catch return null;
+    defer desc.deinit(allocator);
+
+    // Generate based on format: 0=standard, 1=concise, 2=verbose, 3=bs5930
+    const generated = switch (format) {
+        0 => generator.generate(desc, allocator) catch return null,
+        1 => generator.generateConcise(desc, allocator) catch return null,
+        2 => generator.generateVerbose(desc, allocator) catch return null,
+        3 => generator.generateBS5930(desc, allocator) catch return null,
+        else => return null,
+    };
+    const generated_z = allocator.dupeZ(u8, generated) catch return null;
+    allocator.free(generated);
+    return generated_z.ptr;
+}

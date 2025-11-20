@@ -18,6 +18,7 @@ Litholog is a fast, accurate parser for geological descriptions following the BS
 
 **Key Features:**
 - 🚀 High-performance parsing (~1M descriptions/second)
+- 🖥️ Web-based GUI (double-click to launch on Windows)
 - 📊 CSV/Excel file processing with configurable output columns
 - 🏗️ Geological unit identification across multiple boreholes
 - 🔍 Intelligent spelling correction for common typos
@@ -26,6 +27,28 @@ Litholog is a fast, accurate parser for geological descriptions following the BS
 - 📝 BS 5930 compliant output
 
 ## Quick Start
+
+### Web Interface (GUI)
+
+**Easiest way to get started:**
+
+1. Download the executable for your platform from [releases](https://github.com/samotron/litholog/releases)
+2. **Double-click the executable** to launch the web interface
+3. Your browser will open automatically at `http://localhost:8080`
+
+Or launch manually:
+```bash
+litholog web    # Starts web server at http://localhost:8080
+litholog gui    # Alternative command
+```
+
+The web interface provides:
+- **Single description parsing** with live results and confidence scores
+- **Batch processing** with JSON export for multiple descriptions
+- **CSV upload/download** - upload your CSV files, select the description column, and download results with parsed data appended
+- **Modern, clean UI** with gradient design and responsive layout
+- Works on any device - desktop, tablet, or mobile
+- No installation or configuration needed - 100% local processing
 
 ### CLI Tool
 
@@ -159,7 +182,29 @@ pip install litholog
 
 See [Python bindings documentation](bindings/python/README.md) for detailed usage.
 
-## CLI Usage
+## Usage Modes
+
+Litholog offers multiple interfaces to suit your workflow:
+
+### Web Interface
+
+```bash
+# Launch web UI (auto-opens browser)
+litholog web
+
+# Alternative command
+litholog gui
+
+# Or simply double-click the executable (no terminal needed)
+```
+
+Access at `http://localhost:8080` with features:
+- Interactive single description parsing
+- Batch processing with downloadable JSON results
+- Clean, modern interface
+- No dependencies or configuration required
+
+### CLI Usage
 
 ```bash
 # Basic parsing
@@ -176,7 +221,7 @@ litholog --csv input.csv --csv-output output.csv \
          --column "Description" \
          --output-columns "material_type,consistency,primary_soil_type,confidence"
 
-# Interactive mode
+# Interactive terminal UI
 litholog tui
 
 # Help
@@ -329,6 +374,65 @@ The unit identification feature uses intelligent clustering based on:
 - Consistency/density/strength compatibility
 - Stratigraphic position (depth ordering)
 
+### JSON Input/Output (Roundtrip)
+
+Litholog can convert between text descriptions and JSON in both directions, enabling programmatic description generation and data transformation workflows:
+
+```bash
+# Parse description to JSON
+litholog "Firm slightly sandy CLAY" --mode compact > description.json
+
+# Generate description from JSON
+litholog --from-json description.json
+# Output: firm slightly sandy CLAY
+
+# Different output formats
+litholog --from-json description.json --json-format bs5930
+litholog --from-json description.json --json-format verbose
+litholog --from-json description.json --json-format concise
+
+# From stdin (useful for piping)
+echo '{"material_type":"soil","consistency":"firm","primary_soil_type":"clay"}' | litholog --from-json -
+
+# Complete roundtrip
+litholog "Dense SAND" --mode compact | litholog --from-json - --json-format bs5930
+```
+
+**JSON Input Format:**
+
+Single description:
+```json
+{
+  "material_type": "soil",
+  "consistency": "firm",
+  "primary_soil_type": "clay",
+  "secondary_constituents": [
+    {"amount": "slightly", "soil_type": "sandy"}
+  ]
+}
+```
+
+Multiple descriptions (array):
+```json
+[
+  {"material_type": "soil", "consistency": "firm", "primary_soil_type": "clay"},
+  {"material_type": "rock", "rock_strength": "strong", "primary_rock_type": "limestone"}
+]
+```
+
+**Format Options:**
+- `standard` - Default format with all details
+- `concise` - Minimal format (just key properties)
+- `verbose` - Includes color, moisture, and additional properties
+- `bs5930` - BS 5930 compliant format
+
+**Use Cases:**
+- **Data transformation**: Convert JSON logs to readable descriptions
+- **Template system**: Store description templates as JSON
+- **API integration**: Easy integration with web services
+- **Quality control**: Verify parsing accuracy with roundtrip tests
+- **Programmatic generation**: Build descriptions from code
+
 
 ### CLI Options
 
@@ -340,6 +444,10 @@ The unit identification feature uses intelligent clustering based on:
 - `-g, --generate <MODE>`: Generate descriptions (random|variations)
 - `-n, --count <N>`: Number of descriptions to generate
 - `-s, --seed <SEED>`: Seed for random generation
+
+**JSON Input Options:**
+- `--from-json <FILE>`: Generate description from JSON file (use `-` for stdin)
+- `--json-format <FORMAT>`: Output format (standard|concise|verbose|bs5930)
 
 **CSV Options:**
 - `--csv <FILE>`: Input CSV file to process

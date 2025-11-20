@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Litholog - Geological Description Parser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #1d4ed8;
+            --primary-light: #3b82f6;
+            --primary-dark: #1e40af;
+            --success: #059669;
+            --warning: #d97706;
+            --error: #dc2626;
+            --bg-base: #fafaf9;
+            --bg-elevated: #ffffff;
+            --text-primary: #1c1917;
+            --text-secondary: #57534e;
+            --text-muted: #78716c;
+            --border: #e7e5e4;
+            --border-strong: #d6d3d1;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header with gradient */
+        header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2.5rem;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        h1 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem 4rem;
+        }
+
+        /* Modern tab design */
+        .tabs {
+            display: flex;
+            gap: 0.25rem;
+            margin-bottom: 2rem;
+            background: var(--bg-elevated);
+            padding: 0.375rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: var(--radius-md);
+            transition: all 0.15s ease;
+            position: relative;
+        }
+
+        .tab:hover {
+            background: var(--bg-base);
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Card design */
+        .card {
+            background: var(--bg-elevated);
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+            transition: box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            letter-spacing: -0.025em;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.625rem;
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+        }
+
+        textarea, input[type="file"] {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 0.9375rem;
+            font-family: inherit;
+            transition: all 0.15s ease;
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 140px;
+            font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+        }
+
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Modern button design */
+        button {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 0.875rem 1.75rem;
+            border-radius: var(--radius-md);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .button-secondary {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border: 2px solid var(--border-strong);
+        }
+
+        .button-secondary:hover {
+            background: var(--bg-base);
+            border-color: var(--primary);
+        }
+
+        /* File upload area */
+        .upload-area {
+            border: 2px dashed var(--border-strong);
+            border-radius: var(--radius-lg);
+            padding: 3rem 2rem;
+            text-align: center;
+            background: var(--bg-base);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .upload-text {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .upload-hint {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        /* Results */
+        .result {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: var(--bg-base);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+        }
+
+        .result-field {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .result-field:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+        }
+
+        .result-value {
+            color: var(--text-primary);
+            word-break: break-word;
+            font-size: 0.9375rem;
+        }
+
+        /* Badges with gradient */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.375rem 0.875rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+        }
+
+        .badge-soil {
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            color: white;
+        }
+
+        .badge-rock {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        /* Example buttons grid */
+        .examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .example-btn {
+            background: var(--bg-base);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+            padding: 1rem 1.25rem;
+            text-align: left;
+            font-size: 0.9375rem;
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            transition: all 0.15s ease;
+        }
+
+        .example-btn:hover {
+            border-color: var(--primary);
+            background: var(--bg-elevated);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            margin-top: 1.5rem;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .error {
+            background: rgba(220, 38, 38, 0.1);
+            color: var(--error);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+        }
+
+        .success {
+            background: rgba(5, 150, 105, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(5, 150, 105, 0.2);
+        }
+
+        .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-left: 4px solid var(--primary);
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            margin-bottom: 1.5rem;
+        }
+
+        .info-box p {
+            font-size: 0.9375rem;
+            color: var(--primary-dark);
+        }
+
+        /* Loading spinner */
+        .loading {
+            display: inline-block;
+            width: 1.125rem;
+            height: 1.125rem;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Batch results */
+        .batch-result {
+            margin-top: 1.5rem;
+        }
+
+        .batch-item {
+            padding: 1.5rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            margin-bottom: 1rem;
+            transition: all 0.15s ease;
+        }
+
+        .batch-item:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-strong);
+        }
+
+        .batch-description {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--primary);
+            font-size: 1rem;
+        }
+
+        .batch-details {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+
+        /* CSV table */
+        .csv-preview {
+            overflow-x: auto;
+            margin-top: 1.5rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+        }
+
+        .csv-preview table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .csv-preview th {
+            background: var(--bg-base);
+            padding: 0.875rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-strong);
+            color: var(--text-primary);
+        }
+
+        .csv-preview td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .csv-preview tr:last-child td {
+            border-bottom: none;
+        }
+
+        .csv-preview tr:hover td {
+            background: var(--bg-base);
+        }
+
+        /* Button group */
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem 2rem;
+            }
+
+            .header-content {
+                padding: 0 1rem;
+            }
+
+            h1 {
+                font-size: 1.75rem;
+            }
+
+            .result-field {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .examples {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div>
+                <h1>Litholog</h1>
+                <div class="subtitle">BS5930 Geological Description Parser - Fast, Accurate, Local</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('single')">Single Description</button>
+            <button class="tab" onclick="switchTab('batch')">Batch Processing</button>
+            <button class="tab" onclick="switchTab('csv')">CSV Upload</button>
+            <button class="tab" onclick="switchTab('about')">About</button>
+        </div>
+
+        <!-- Single Description Tab -->
+        <div id="single" class="tab-content active">
+            <div class="card">
+                <div class="card-title">Parse Geological Description</div>
+                
+                <div class="form-group">
+                    <label for="description">Enter geological description:</label>
+                    <textarea id="description" placeholder="e.g., Firm brown slightly sandy CLAY"></textarea>
+                </div>
+
+                <button onclick="parseDescription()" id="parseBtn">
+                    Parse Description
+                </button>
+
+                <div id="result"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Example Descriptions</div>
+                <div class="examples">
+                    <button class="example-btn" onclick="setExample('Firm CLAY')">Firm CLAY</button>
+                    <button class="example-btn" onclick="setExample('Dense SAND')">Dense SAND</button>
+                    <button class="example-btn" onclick="setExample('Strong LIMESTONE')">Strong LIMESTONE</button>
+                    <button class="example-btn" onclick="setExample('Firm to stiff slightly sandy gravelly CLAY')">Firm to stiff slightly sandy gravelly CLAY</button>
+                    <button class="example-btn" onclick="setExample('Moderately strong slightly weathered jointed SANDSTONE')">Moderately strong slightly weathered jointed SANDSTONE</button>
+                    <button class="example-btn" onclick="setExample('Very dense slightly silty fine to coarse SAND')">Very dense slightly silty fine to coarse SAND</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Batch Processing Tab -->
+        <div id="batch" class="tab-content">
+            <div class="card">
+                <div class="card-title">Batch Processing</div>
+                
+                <div class="info-box">
+                    <p>Enter multiple descriptions (one per line) to parse them all at once. Results can be downloaded as JSON.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="batchInput">Enter descriptions (one per line):</label>
+                    <textarea id="batchInput" rows="10" placeholder="Firm CLAY&#10;Dense SAND&#10;Strong LIMESTONE"></textarea>
+                </div>
+
+                <button onclick="parseBatch()" id="batchBtn">
+                    Parse All Descriptions
+                </button>
+
+                <div id="batchResult"></div>
+            </div>
+        </div>
+
+        <!-- CSV Upload Tab -->
+        <div id="csv" class="tab-content">
+            <div class="card">
+                <div class="card-title">CSV File Processing</div>
+                
+                <div class="info-box">
+                    <p>Upload a CSV file with geological descriptions. Select the column to parse, and download the results with parsed data appended.</p>
+                </div>
+
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('csvFile').click()">
+                    <input type="file" id="csvFile" accept=".csv" style="display: none;" onchange="handleFileUpload(event)">
+                    <div class="upload-icon">📂</div>
+                    <div class="upload-text">Click to upload CSV file</div>
+                    <div class="upload-hint">or drag and drop your file here</div>
+                </div>
+
+                <div id="csvPreview"></div>
+            </div>
+        </div>
+
+        <!-- About Tab -->
+        <div id="about" class="tab-content">
+            <div class="card">
+                <div class="card-title">About Litholog</div>
+                <p style="margin-bottom: 1.5rem; font-size: 1.0625rem; line-height: 1.75;">
+                    Litholog is a fast, accurate parser for geological descriptions following the BS5930 standard. 
+                    It can parse complex soil and rock descriptions and extract structured information.
+                </p>
+                
+                <div class="card-title" style="margin-top: 2.5rem; font-size: 1.25rem;">Supported Features</div>
+                <ul style="margin-left: 1.5rem; margin-bottom: 1.5rem; line-height: 1.75;">
+                    <li>Material type classification (soil/rock)</li>
+                    <li>Consistency, density, and strength properties</li>
+                    <li>Primary and secondary constituents</li>
+                    <li>Weathering grades and rock structures</li>
+                    <li>Quantitative strength parameters</li>
+                    <li>Intelligent spelling correction</li>
+                    <li>Confidence scoring and validation</li>
+                </ul>
+
+                <div class="card-title" style="margin-top: 2.5rem; font-size: 1.25rem;">Performance</div>
+                <ul style="margin-left: 1.5rem; margin-bottom: 1.5rem; line-height: 1.75;">
+                    <li>Parsing speed: ~1M descriptions/second</li>
+                    <li>Memory efficient: &lt;10MB for typical workloads</li>
+                    <li>Cross-platform: Windows, macOS, Linux</li>
+                    <li>100% local processing - no data leaves your machine</li>
+                </ul>
+
+                <div class="card-title" style="margin-top: 2.5rem; font-size: 1.25rem;">More Information</div>
+                <p style="line-height: 1.75;">
+                    Visit <a href="https://github.com/samotron/litholog" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">github.com/samotron/litholog</a> 
+                    for documentation, CLI usage, and language bindings (Go, Python).
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CSV handling variables
+        let csvData = null;
+        let csvHeaders = [];
+        let selectedColumn = null;
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function setExample(text) {
+            document.getElementById('description').value = text;
+            parseDescription();
+        }
+
+        async function parseDescription() {
+            const description = document.getElementById('description').value.trim();
+            const resultDiv = document.getElementById('result');
+            const btn = document.getElementById('parseBtn');
+
+            if (!description) {
+                resultDiv.innerHTML = '<div class="alert error">⚠️ Please enter a description</div>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>Parsing...';
+            resultDiv.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description })
+                });
+
+                if (!response.ok) throw new Error('Parse failed');
+
+                const result = await response.json();
+                displayResult(result);
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert error">⚠️ Error: ${error.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Parse Description';
+            }
+        }
+
+        function displayResult(result) {
+            const resultDiv = document.getElementById('result');
+            
+            const materialBadge = result.material_type === 'soil' 
+                ? '<span class="badge badge-soil">Soil</span>'
+                : '<span class="badge badge-rock">Rock</span>';
+
+            let html = `<div class="result">`;
+            html += `<div class="result-field"><div class="result-label">Material Type:</div><div class="result-value">${materialBadge}</div></div>`;
+            
+            if (result.consistency) {
+                html += `<div class="result-field"><div class="result-label">Consistency:</div><div class="result-value">${result.consistency}</div></div>`;
+            }
+            
+            if (result.density) {
+                html += `<div class="result-field"><div class="result-label">Density:</div><div class="result-value">${result.density}</div></div>`;
+            }
+
+            if (result.primary_soil_type) {
+                html += `<div class="result-field"><div class="result-label">Primary Soil Type:</div><div class="result-value">${result.primary_soil_type}</div></div>`;
+            }
+
+            if (result.primary_rock_type) {
+                html += `<div class="result-field"><div class="result-label">Primary Rock Type:</div><div class="result-value">${result.primary_rock_type}</div></div>`;
+            }
+
+            if (result.rock_strength) {
+                html += `<div class="result-field"><div class="result-label">Rock Strength:</div><div class="result-value">${result.rock_strength}</div></div>`;
+            }
+
+            if (result.weathering_grade) {
+                html += `<div class="result-field"><div class="result-label">Weathering Grade:</div><div class="result-value">${result.weathering_grade}</div></div>`;
+            }
+
+            if (result.rock_structure) {
+                html += `<div class="result-field"><div class="result-label">Rock Structure:</div><div class="result-value">${result.rock_structure}</div></div>`;
+            }
+
+            if (result.secondary_constituents && result.secondary_constituents.length > 0) {
+                const constituents = result.secondary_constituents.map(c => `${c.amount} ${c.soil_type}`).join(', ');
+                html += `<div class="result-field"><div class="result-label">Secondary Constituents:</div><div class="result-value">${constituents}</div></div>`;
+            }
+
+            if (result.strength_parameter_type) {
+                html += `<div class="result-field"><div class="result-label">Strength Parameter:</div><div class="result-value">${result.strength_parameter_type}</div></div>`;
+                if (result.strength_lower_bound !== undefined) {
+                    html += `<div class="result-field"><div class="result-label">Strength Range:</div><div class="result-value">${result.strength_lower_bound} - ${result.strength_upper_bound} ${result.strength_unit || ''}</div></div>`;
+                }
+            }
+
+            html += `<div class="result-field"><div class="result-label">Confidence:</div><div class="result-value">${(result.confidence * 100).toFixed(1)}%</div></div>`;
+            html += `</div>`;
+
+            resultDiv.innerHTML = html;
+        }
+
+        async function parseBatch() {
+            const input = document.getElementById('batchInput').value.trim();
+            const resultDiv = document.getElementById('batchResult');
+            const btn = document.getElementById('batchBtn');
+
+            if (!input) {
+                resultDiv.innerHTML = '<div class="alert error">⚠️ Please enter at least one description</div>';
+                return;
+            }
+
+            const descriptions = input.split('\n').filter(line => line.trim());
+            
+            if (descriptions.length === 0) {
+                resultDiv.innerHTML = '<div class="alert error">⚠️ Please enter at least one description</div>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>Parsing...';
+            resultDiv.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/parse-batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ descriptions })
+                });
+
+                if (!response.ok) throw new Error('Parse failed');
+
+                const results = await response.json();
+                displayBatchResults(results);
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert error">⚠️ Error: ${error.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Parse All Descriptions';
+            }
+        }
+
+        function displayBatchResults(results) {
+            const resultDiv = document.getElementById('batchResult');
+            
+            let html = '<div class="batch-result">';
+            html += `<div class="alert success">✓ Successfully parsed ${results.length} descriptions</div>`;
+            html += '<button onclick="downloadJSON()" style="margin-top: 1rem;">Download Results as JSON</button>';
+            
+            results.forEach((result, idx) => {
+                const materialBadge = result.material_type === 'soil' 
+                    ? '<span class="badge badge-soil">Soil</span>'
+                    : '<span class="badge badge-rock">Rock</span>';
+                
+                html += `<div class="batch-item">`;
+                html += `<div class="batch-description">${result.raw_description}</div>`;
+                html += `<div class="batch-details">`;
+                html += `<div>Material: ${materialBadge}</div>`;
+                
+                if (result.consistency) html += `<div>Consistency: ${result.consistency}</div>`;
+                if (result.density) html += `<div>Density: ${result.density}</div>`;
+                if (result.primary_soil_type) html += `<div>Type: ${result.primary_soil_type}</div>`;
+                if (result.primary_rock_type) html += `<div>Type: ${result.primary_rock_type}</div>`;
+                if (result.rock_strength) html += `<div>Strength: ${result.rock_strength}</div>`;
+                
+                html += `<div>Confidence: ${(result.confidence * 100).toFixed(1)}%</div>`;
+                html += `</div></div>`;
+            });
+            
+            html += '</div>';
+            resultDiv.innerHTML = html;
+
+            window.currentBatchResults = results;
+        }
+
+        function downloadJSON() {
+            if (!window.currentBatchResults) return;
+            
+            const dataStr = JSON.stringify(window.currentBatchResults, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'litholog-results-' + Date.now() + '.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // CSV Upload functionality
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseCSV(text, file.name);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(text, filename) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) {
+                alert('CSV file must have at least a header and one data row');
+                return;
+            }
+
+            csvHeaders = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            csvData = lines.slice(1).map(line => {
+                const values = [];
+                let inQuotes = false;
+                let current = '';
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        values.push(current.trim().replace(/^"|"$/g, ''));
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                values.push(current.trim().replace(/^"|"$/g, ''));
+                return values;
+            });
+
+            displayCSVPreview(filename);
+        }
+
+        function displayCSVPreview(filename) {
+            const previewDiv = document.getElementById('csvPreview');
+            
+            let html = `<div class="alert success" style="margin-top: 1.5rem;">✓ Loaded ${filename} (${csvData.length} rows)</div>`;
+            
+            html += '<div class="form-group" style="margin-top: 1.5rem;">';
+            html += '<label>Select column containing geological descriptions:</label>';
+            html += '<select id="columnSelect" onchange="selectedColumn = this.value" style="width: 100%; padding: 0.875rem; border: 2px solid var(--border); border-radius: var(--radius-md); font-size: 0.9375rem;">';
+            html += '<option value="">-- Select Column --</option>';
+            csvHeaders.forEach((header, idx) => {
+                html += `<option value="${idx}">${header}</option>`;
+            });
+            html += '</select>';
+            html += '</div>';
+
+            html += '<div class="csv-preview">';
+            html += '<table><thead><tr>';
+            csvHeaders.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            const previewRows = Math.min(5, csvData.length);
+            for (let i = 0; i < previewRows; i++) {
+                html += '<tr>';
+                csvData[i].forEach(cell => {
+                    html += `<td>${cell || ''}</td>`;
+                });
+                html += '</tr>';
+            }
+            
+            if (csvData.length > 5) {
+                html += `<tr><td colspan="${csvHeaders.length}" style="text-align: center; color: var(--text-muted); font-style: italic;">... and ${csvData.length - 5} more rows</td></tr>`;
+            }
+            
+            html += '</tbody></table></div>';
+
+            html += '<div class="button-group">';
+            html += '<button onclick="processCSV()" id="processBtn">Parse Descriptions</button>';
+            html += '<button class="button-secondary" onclick="resetCSV()">Clear</button>';
+            html += '</div>';
+
+            previewDiv.innerHTML = html;
+        }
+
+        async function processCSV() {
+            if (selectedColumn === null || selectedColumn === '') {
+                alert('Please select a column to parse');
+                return;
+            }
+
+            const btn = document.getElementById('processBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>Processing...';
+
+            const colIdx = parseInt(selectedColumn);
+            const descriptions = csvData.map(row => row[colIdx] || '').filter(d => d.trim());
+
+            try {
+                const response = await fetch('/api/parse-batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ descriptions })
+                });
+
+                if (!response.ok) throw new Error('Parse failed');
+
+                const results = await response.json();
+                
+                // Add parsed columns to CSV data
+                const newHeaders = [...csvHeaders, 'material_type', 'consistency', 'density', 'primary_soil_type', 'primary_rock_type', 'rock_strength', 'confidence'];
+                const newData = csvData.map((row, idx) => {
+                    const result = results[idx] || {};
+                    return [
+                        ...row,
+                        result.material_type || '',
+                        result.consistency || '',
+                        result.density || '',
+                        result.primary_soil_type || '',
+                        result.primary_rock_type || '',
+                        result.rock_strength || '',
+                        result.confidence ? (result.confidence * 100).toFixed(1) + '%' : ''
+                    ];
+                });
+
+                downloadCSV(newHeaders, newData);
+                
+                const previewDiv = document.getElementById('csvPreview');
+                previewDiv.innerHTML = `<div class="alert success">✓ Successfully processed ${results.length} descriptions. File downloaded!</div>` + previewDiv.innerHTML;
+            } catch (error) {
+                alert('Error processing CSV: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Parse Descriptions';
+            }
+        }
+
+        function downloadCSV(headers, data) {
+            let csv = headers.map(h => `"${h}"`).join(',') + '\n';
+            data.forEach(row => {
+                csv += row.map(cell => `"${cell}"`).join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'litholog-processed-' + Date.now() + '.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function resetCSV() {
+            csvData = null;
+            csvHeaders = [];
+            selectedColumn = null;
+            document.getElementById('csvPreview').innerHTML = '';
+            document.getElementById('csvFile').value = '';
+        }
+
+        // Drag and drop support
+        const uploadArea = document.getElementById('uploadArea');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.classList.remove('drag-over');
+            });
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('csvFile').files = files;
+                handleFileUpload({ target: { files: files } });
+            }
+        });
+
+        // Health check on load
+        fetch('/api/health')
+            .then(r => r.json())
+            .then(() => console.log('✓ Litholog server connected'))
+            .catch(err => console.error('✗ Server connection failed:', err));
+    </script>
+</body>
+</html>

@@ -11,6 +11,8 @@ pub const CliArgs = struct {
     csv_output_columns: ?[]const []const u8 = null,
     csv_no_header: bool = false,
     output_mode: OutputMode = .compact,
+    json_input_path: ?[]const u8 = null,
+    json_format: JsonFormat = .standard,
     help: bool = false,
     no_color: bool = false,
     check_anomalies: bool = false,
@@ -48,6 +50,13 @@ pub const CliArgs = struct {
     pub const GenerateMode = enum {
         random,
         variations,
+    };
+
+    pub const JsonFormat = enum {
+        standard,
+        concise,
+        verbose,
+        bs5930,
     };
 
     pub fn deinit(self: *CliArgs) void {
@@ -450,6 +459,29 @@ pub const Cli = struct {
                 } else {
                     return error.InvalidOutputMode;
                 }
+            } else if (std.mem.eql(u8, arg, "--from-json")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingJsonInputArgument;
+                }
+                i += 1;
+                result.json_input_path = args[i];
+            } else if (std.mem.eql(u8, arg, "--json-format")) {
+                if (i + 1 >= args.len) {
+                    return error.MissingJsonFormatArgument;
+                }
+                i += 1;
+                const format_str = args[i];
+                if (std.mem.eql(u8, format_str, "standard")) {
+                    result.json_format = .standard;
+                } else if (std.mem.eql(u8, format_str, "concise")) {
+                    result.json_format = .concise;
+                } else if (std.mem.eql(u8, format_str, "verbose")) {
+                    result.json_format = .verbose;
+                } else if (std.mem.eql(u8, format_str, "bs5930")) {
+                    result.json_format = .bs5930;
+                } else {
+                    return error.InvalidJsonFormat;
+                }
             } else if (std.mem.startsWith(u8, arg, "-")) {
                 return error.UnknownOption;
             } else {
@@ -478,6 +510,12 @@ pub const Cli = struct {
         // Handle generation mode
         if (args.generate_mode) |gen_mode| {
             try self.handleGenerate(gen_mode, args);
+            return;
+        }
+
+        // Handle JSON input mode
+        if (args.json_input_path) |json_path| {
+            try self.handleJsonInput(json_path, args);
             return;
         }
 
@@ -664,6 +702,98 @@ pub const Cli = struct {
         }
     }
 
+    fn handleJsonInput(self: *Cli, json_path: []const u8, args: CliArgs) !void {
+        const stdout = std.io.getStdOut().writer();
+        const generator = @import("parser/generator.zig");
+
+        // Read JSON file
+        const json_content = blk: {
+            if (std.mem.eql(u8, json_path, "-")) {
+                // Read from stdin
+                const stdin = std.io.getStdIn();
+                break :blk try stdin.readToEndAlloc(self.allocator, 10 * 1024 * 1024); // 10MB max
+            } else {
+                // Read from file
+                const file = std.fs.cwd().openFile(json_path, .{}) catch |err| switch (err) {
+                    error.FileNotFound => {
+                        std.debug.print("Error: File not found: {s}\n", .{json_path});
+                        return;
+                    },
+                    else => return err,
+                };
+                defer file.close();
+                break :blk try file.readToEndAlloc(self.allocator, 10 * 1024 * 1024); // 10MB max
+            }
+        };
+        defer self.allocator.free(json_content);
+
+        // Trim whitespace
+        const trimmed = std.mem.trim(u8, json_content, " \t\n\r");
+
+        // Check if it's an array or single object
+        if (std.mem.startsWith(u8, trimmed, "[")) {
+            // Parse as array of descriptions
+            const parsed = std.json.parseFromSlice(
+                std.json.Value,
+                self.allocator,
+                trimmed,
+                .{},
+            ) catch |err| {
+                std.debug.print("Error: Failed to parse JSON: {any}\n", .{err});
+                return;
+            };
+            defer parsed.deinit();
+
+            if (parsed.value != .array) {
+                std.debug.print("Error: Expected JSON array\n", .{});
+                return;
+            }
+
+            const array = parsed.value.array;
+            for (array.items) |item| {
+                // Convert back to string for fromJson
+                var json_str = std.ArrayList(u8).init(self.allocator);
+                defer json_str.deinit();
+                try std.json.stringify(item, .{}, json_str.writer());
+
+                const desc = bs5930.SoilDescription.fromJson(json_str.items, self.allocator) catch |err| {
+                    std.debug.print("Error: Failed to parse description from JSON: {any}\n", .{err});
+                    continue;
+                };
+                defer desc.deinit(self.allocator);
+
+                // Generate description based on format
+                const generated = switch (args.json_format) {
+                    .standard => try generator.generate(desc, self.allocator),
+                    .concise => try generator.generateConcise(desc, self.allocator),
+                    .verbose => try generator.generateVerbose(desc, self.allocator),
+                    .bs5930 => try generator.generateBS5930(desc, self.allocator),
+                };
+                defer self.allocator.free(generated);
+
+                try stdout.print("{s}\n", .{generated});
+            }
+        } else {
+            // Parse as single description
+            const desc = bs5930.SoilDescription.fromJson(trimmed, self.allocator) catch |err| {
+                std.debug.print("Error: Failed to parse description from JSON: {any}\n", .{err});
+                return;
+            };
+            defer desc.deinit(self.allocator);
+
+            // Generate description based on format
+            const generated = switch (args.json_format) {
+                .standard => try generator.generate(desc, self.allocator),
+                .concise => try generator.generateConcise(desc, self.allocator),
+                .verbose => try generator.generateVerbose(desc, self.allocator),
+                .bs5930 => try generator.generateBS5930(desc, self.allocator),
+            };
+            defer self.allocator.free(generated);
+
+            try stdout.print("{s}\n", .{generated});
+        }
+    }
+
     fn parseFile(self: *Cli, file_path: []const u8, mode: CliArgs.OutputMode, no_color: bool, check_anomalies: bool) !void {
         const file = std.fs.cwd().openFile(file_path, .{}) catch |err| switch (err) {
             error.FileNotFound => {
@@ -788,8 +918,11 @@ pub const Cli = struct {
             \\    litholog [OPTIONS] [DESCRIPTION]        Parse a single description
             \\    litholog --file <FILE> [OPTIONS]        Parse descriptions from file
             \\    litholog --csv <FILE> [CSV OPTIONS]     Process CSV/Excel file
+            \\    litholog web                             Launch web-based GUI
             \\    litholog tui                             Interactive mode (TUI)
             \\    cat descriptions.txt | litholog [OPTIONS]   Parse from stdin
+            \\
+            \\    NOTE: Double-clicking the executable (Windows) automatically launches the web GUI
             \\
             \\OPTIONS:
             \\    -h, --help              Show this help message
@@ -801,6 +934,10 @@ pub const Cli = struct {
             \\    -g, --generate <MODE>   Generate descriptions (random|variations)
             \\    -n, --count <N>         Number of descriptions to generate (default: 1)
             \\    -s, --seed <SEED>       Seed for random generation (default: timestamp)
+            \\
+            \\JSON INPUT OPTIONS:
+            \\    --from-json <FILE>      Generate description from JSON file (use - for stdin)
+            \\    --json-format <FORMAT>  Output format (standard|concise|verbose|bs5930)
             \\
             \\CSV OPTIONS:
             \\    --csv <FILE>            Input CSV file to process
@@ -929,6 +1066,12 @@ pub const Cli = struct {
             \\    # Generate variations
             \\    litholog "Firm CLAY" --generate variations
             \\    litholog "Dense SAND" --generate variations --mode pretty
+            \\    
+            \\    # JSON to description (roundtrip)
+            \\    litholog --from-json description.json
+            \\    litholog --from-json description.json --json-format bs5930
+            \\    echo '{{"material_type":"soil","consistency":"firm","primary_soil_type":"clay"}}' | litholog --from-json -
+            \\    litholog "Firm CLAY" --mode compact | litholog --from-json - --json-format verbose
             \\    
             \\    # File processing
             \\    litholog --file descriptions.txt --mode summary

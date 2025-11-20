@@ -164,6 +164,10 @@ char* litholog_generate_concise(const litholog_soil_description_t* description);
 char* litholog_fuzzy_match(const char* target, const char** options, int options_count, float threshold);
 float litholog_similarity(const char* s1, const char* s2);
 
+// JSON input/output
+char* litholog_generate_from_json(const char* json_str);
+char* litholog_generate_from_json_format(const char* json_str, int format);
+
 #ifdef __cplusplus
 }
 #endif

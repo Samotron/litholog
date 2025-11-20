@@ -1,6 +1,8 @@
 const std = @import("std");
 const cli = @import("cli.zig");
 const tui = @import("tui.zig");
+const web = @import("web.zig");
+const builtin = @import("builtin");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -9,6 +11,25 @@ pub fn main() !void {
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
+
+    // Check if launched via double-click (no args and stdin is not a TTY)
+    const launched_via_doubleclick = args.len == 1 and !isStdinTTY();
+
+    if (launched_via_doubleclick) {
+        // Launch web UI
+        var server = try web.WebServer.init(allocator, 8080);
+        defer server.deinit();
+        try server.start();
+        return;
+    }
+
+    // Check if web mode is explicitly requested
+    if (args.len > 1 and (std.mem.eql(u8, args[1], "web") or std.mem.eql(u8, args[1], "gui"))) {
+        var server = try web.WebServer.init(allocator, 8080);
+        defer server.deinit();
+        try server.start();
+        return;
+    }
 
     // Check if TUI mode is requested
     if (args.len > 1 and std.mem.eql(u8, args[1], "tui")) {
@@ -49,4 +70,17 @@ pub fn main() !void {
     defer cli_args.deinit();
 
     try litholog_cli.run(cli_args);
+}
+
+fn isStdinTTY() bool {
+    if (builtin.os.tag == .windows) {
+        const INVALID_HANDLE_VALUE = @as(std.os.windows.HANDLE, @ptrFromInt(@as(usize, @bitCast(@as(isize, -1)))));
+        const handle = std.io.getStdIn().handle;
+        if (handle == INVALID_HANDLE_VALUE) return false;
+
+        var mode: std.os.windows.DWORD = undefined;
+        return std.os.windows.kernel32.GetConsoleMode(handle, &mode) != 0;
+    } else {
+        return std.posix.isatty(std.io.getStdIn().handle);
+    }
 }
