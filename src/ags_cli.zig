@@ -42,6 +42,8 @@ fn handleInspect(allocator: std.mem.Allocator, args: [][:0]u8) !void {
             format = args[i];
         } else if (std.mem.eql(u8, args[i], "--svg")) {
             format = "svg";
+        } else if (std.mem.eql(u8, args[i], "--json")) {
+            format = "json";
         } else if (std.mem.eql(u8, args[i], "--borehole")) {
             if (i + 1 >= args.len) return error.MissingBoreholeArgument;
             i += 1;
@@ -64,7 +66,7 @@ fn handleInspect(allocator: std.mem.Allocator, args: [][:0]u8) !void {
             if (i + 1 >= args.len) return error.MissingTitleArgument;
             i += 1;
             svg_config.title = args[i];
-        } else if (std.mem.eql(u8, args[i], "--output")) {
+        } else if (std.mem.eql(u8, args[i], "--output") or std.mem.eql(u8, args[i], "-o")) {
             if (i + 1 >= args.len) return error.MissingOutputArgument;
             i += 1;
             output_path = args[i];
@@ -102,13 +104,16 @@ fn handleEnhance(allocator: std.mem.Allocator, args: [][:0]u8) !void {
 
     const input_path = args[0];
     var output_path: ?[]const u8 = null;
+    var json_output = false;
 
     var i: usize = 1;
     while (i < args.len) : (i += 1) {
-        if (std.mem.eql(u8, args[i], "--output")) {
+        if (std.mem.eql(u8, args[i], "--output") or std.mem.eql(u8, args[i], "-o")) {
             if (i + 1 >= args.len) return error.MissingOutputArgument;
             i += 1;
             output_path = args[i];
+        } else if (std.mem.eql(u8, args[i], "--json")) {
+            json_output = true;
         }
     }
 
@@ -125,18 +130,33 @@ fn handleEnhance(allocator: std.mem.Allocator, args: [][:0]u8) !void {
     defer file.close();
     try file.writeAll(enhanced);
 
-    try std.io.getStdOut().writer().print("Enhanced AGS written to {s}\n", .{output_path.?});
+    if (json_output) {
+        try std.io.getStdOut().writer().print("{{\"status\":\"ok\",\"output\":\"{s}\"}}\n", .{output_path.?});
+    } else {
+        try std.io.getStdOut().writer().print("Enhanced AGS written to {s}\n", .{output_path.?});
+    }
 }
 
 fn handleValidate(allocator: std.mem.Allocator, args: [][:0]u8) !void {
     if (args.len == 0) return error.MissingFileArgument;
     const input_path = args[0];
+    var json_output = false;
+    for (args[1..]) |arg| {
+        if (std.mem.eql(u8, arg, "--json")) json_output = true;
+    }
 
     var report = try ags_validator.validateFile(allocator, input_path);
     defer report.deinit(allocator);
 
     const stdout = std.io.getStdOut().writer();
-    if (report.is_valid) {
+    if (json_output) {
+        try stdout.print("{{\"valid\":{s},\"issues\":[", .{if (report.is_valid) "true" else "false"});
+        for (report.issues, 0..) |issue, i| {
+            if (i > 0) try stdout.writeByte(',');
+            try stdout.print("\"{s}\"", .{issue});
+        }
+        try stdout.writeAll("]}\n");
+    } else if (report.is_valid) {
         try stdout.writeAll("AGS validation: PASS\n");
     } else {
         try stdout.print("AGS validation: FAIL ({d} issues)\n", .{report.issues.len});

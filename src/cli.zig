@@ -11,6 +11,7 @@ pub const CliArgs = struct {
     csv_output_columns: ?[]const []const u8 = null,
     csv_no_header: bool = false,
     output_mode: OutputMode = .compact,
+    output_mode_explicit: bool = false,
     json_input_path: ?[]const u8 = null,
     json_format: JsonFormat = .standard,
     help: bool = false,
@@ -459,6 +460,7 @@ pub const Cli = struct {
                 } else {
                     return error.InvalidOutputMode;
                 }
+                result.output_mode_explicit = true;
             } else if (std.mem.eql(u8, arg, "--from-json")) {
                 if (i + 1 >= args.len) {
                     return error.MissingJsonInputArgument;
@@ -496,6 +498,8 @@ pub const Cli = struct {
     }
 
     pub fn run(self: *Cli, args: CliArgs) !void {
+        const output_mode = if (args.output_mode_explicit) args.output_mode else self.defaultOutputMode();
+
         if (args.help) {
             try self.printHelp();
             return;
@@ -520,15 +524,20 @@ pub const Cli = struct {
         }
 
         if (args.description) |desc| {
-            try self.parseAndPrint(desc, args.output_mode, args.no_color, args.check_anomalies);
+            try self.parseAndPrint(desc, output_mode, args.no_color, args.check_anomalies);
             if (args.check_compliance) {
                 try self.checkCompliance(desc);
             }
         } else if (args.file_path) |file_path| {
-            try self.parseFile(file_path, args.output_mode, args.no_color, args.check_anomalies);
+            try self.parseFile(file_path, output_mode, args.no_color, args.check_anomalies);
         } else {
             try self.printHelp();
         }
+    }
+
+    fn defaultOutputMode(self: *Cli) CliArgs.OutputMode {
+        _ = self;
+        return if (isatty(std.io.getStdOut().handle)) .summary else .compact;
     }
 
     fn processCsv(self: *Cli, csv_path: []const u8, args: CliArgs) !void {
