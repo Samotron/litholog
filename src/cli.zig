@@ -839,7 +839,7 @@ pub const Cli = struct {
             },
             .pretty => {
                 const use_colors = self.use_colors and !no_color;
-                const json = try result.toColorizedJson(self.allocator, use_colors);
+                const json = try result.toColouredTerminal(self.allocator, use_colors);
                 defer self.allocator.free(json);
                 try stdout.print("{s}\n", .{json});
             },
@@ -918,11 +918,27 @@ pub const Cli = struct {
             \\    litholog [OPTIONS] [DESCRIPTION]        Parse a single description
             \\    litholog --file <FILE> [OPTIONS]        Parse descriptions from file
             \\    litholog --csv <FILE> [CSV OPTIONS]     Process CSV/Excel file
+            \\    litholog inspect <FILE.ags> [OPTIONS]   Inspect AGS file
+            \\    litholog enhance <FILE.ags> --output <OUT.ags>
+            \\    litholog validate <FILE.ags>            Validate AGS structure
             \\    litholog web                             Launch web-based GUI
             \\    litholog tui                             Interactive mode (TUI)
             \\    cat descriptions.txt | litholog [OPTIONS]   Parse from stdin
             \\
             \\    NOTE: Double-clicking the executable (Windows) automatically launches the web GUI
+            \\
+            \\AGS OPTIONS:
+            \\    inspect --format <F>     Output format: svg|summary|json|csv (default: svg)
+            \\    inspect --svg            Shortcut for --format svg
+            \\    inspect --borehole <ID>  Select borehole for SVG output
+            \\    inspect --scale <N>      SVG pixels per metre (default: 45)
+            \\    inspect --width <N>      SVG width in pixels (default: 900)
+            \\    inspect --no-confidence  Hide confidence colour band
+            \\    inspect --show-strength  Show inferred strength column
+            \\    inspect --no-corrections Disable spelling correction highlights
+            \\    inspect --title <TEXT>   Custom SVG title
+            \\    inspect --output <FILE>  Write inspect output to file
+            \\    enhance --output <FILE>  Write enhanced AGS output
             \\
             \\OPTIONS:
             \\    -h, --help              Show this help message

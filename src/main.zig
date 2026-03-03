@@ -2,6 +2,7 @@ const std = @import("std");
 const cli = @import("cli.zig");
 const tui = @import("tui.zig");
 const web = @import("web.zig");
+const ags_cli = @import("ags_cli.zig");
 const builtin = @import("builtin");
 
 pub fn main() !void {
@@ -43,6 +44,10 @@ pub fn main() !void {
             std.debug.print("Error running TUI: {}\n", .{err});
             return;
         };
+        return;
+    }
+
+    if (try ags_cli.handle(allocator, args)) {
         return;
     }
 

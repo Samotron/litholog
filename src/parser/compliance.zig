@@ -48,16 +48,34 @@ pub const ComplianceChecker = struct {
         issues: *std.ArrayList(ComplianceIssue),
         description: *const types.SoilDescription,
     ) !void {
-        _ = self;
-        _ = issues;
-        _ = description;
+        const raw_lower_buf = try self.allocator.alloc(u8, description.raw_description.len);
+        defer self.allocator.free(raw_lower_buf);
+        const raw_lower = std.ascii.lowerString(raw_lower_buf, description.raw_description);
 
-        // Check for non-standard consistency terms
-        // BS 5930 requires: very soft, soft, firm, stiff, very stiff, hard
-        // Common non-compliant: "medium firm", "moderately stiff"
+        const non_standard_terms = [_]struct {
+            term: []const u8,
+            suggestion: []const u8,
+        }{
+            .{ .term = "medium firm", .suggestion = "Use 'firm' or 'firm to stiff'" },
+            .{ .term = "moderately stiff", .suggestion = "Use 'stiff' or 'firm to stiff'" },
+        };
 
-        // This is handled by the parser's terminology database
-        // Additional checks can be added here for specific edge cases
+        for (non_standard_terms) |item| {
+            if (std.mem.indexOf(u8, raw_lower, item.term) != null) {
+                const message = try std.fmt.allocPrint(
+                    self.allocator,
+                    "Non-standard terminology '{s}' detected",
+                    .{item.term},
+                );
+                try issues.append(ComplianceIssue{
+                    .issue_type = .non_standard_term,
+                    .severity = .medium,
+                    .description = message,
+                    .suggestion = try self.allocator.dupe(u8, item.suggestion),
+                    .bs5930_reference = try self.allocator.dupe(u8, "BS 5930:2015 §6.3"),
+                });
+            }
+        }
     }
 
     fn checkDescriptorOrder(
@@ -71,21 +89,61 @@ pub const ComplianceChecker = struct {
 
         const raw = description.raw_description;
 
-        // Check if primary constituent comes before secondary
-        // This is a simplified check - full implementation would parse token positions
-        if (description.material_type == .soil) {
-            if (description.primary_soil_type != null and description.secondary_constituents.len > 0) {
-                // Check if description structure is plausible
-                // For now, just validate that we have the expected components
-                _ = raw;
+        if (description.material_type == .soil and description.primary_soil_type != null) {
+            const lower_buf = try self.allocator.alloc(u8, raw.len);
+            defer self.allocator.free(lower_buf);
+            const lower = std.ascii.lowerString(lower_buf, raw);
 
-                // Future enhancement: Track token positions during parsing
-                // and validate order here
+            if (description.primary_soil_type) |pst| {
+                var primary_buf: [32]u8 = undefined;
+                const primary_lower = std.ascii.lowerString(primary_buf[0..pst.toString().len], pst.toString());
+                const primary_index = std.mem.indexOf(u8, lower, primary_lower);
+
+                if (primary_index) |p_idx| {
+                    for (description.secondary_constituents) |constituent| {
+                        if (std.mem.indexOf(u8, lower, constituent.soil_type)) |s_idx| {
+                            if (s_idx > p_idx) {
+                                const issue = try ComplianceIssue.init(
+                                    self.allocator,
+                                    .invalid_descriptor_order,
+                                    .medium,
+                                    "Secondary constituent appears after primary soil type",
+                                    "Use BS 5930 order: [consistency/density] [colour] [secondary constituents] [primary type]",
+                                    "BS 5930:2015 §6.3",
+                                );
+                                try issues.append(issue);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            const state_index = if (description.consistency) |c|
+                std.mem.indexOf(u8, lower, c.toString())
+            else if (description.density) |d|
+                std.mem.indexOf(u8, lower, d.toString())
+            else
+                null;
+
+            if (description.color) |color| {
+                if (state_index) |s_idx| {
+                    if (std.mem.indexOf(u8, lower, color.toString())) |c_idx| {
+                        if (c_idx < s_idx) {
+                            const issue = try ComplianceIssue.init(
+                                self.allocator,
+                                .invalid_descriptor_order,
+                                .low,
+                                "Colour appears before consistency/density descriptor",
+                                "Use BS 5930 order: [consistency/density] before [colour]",
+                                "BS 5930:2015 §6.3",
+                            );
+                            try issues.append(issue);
+                        }
+                    }
+                }
             }
         }
-
-        _ = self;
-        _ = issues;
     }
 
     fn checkProportionConsistency(

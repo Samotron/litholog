@@ -68,7 +68,9 @@ pub const Consistency = enum {
 pub const Density = enum {
     very_loose,
     loose,
+    loose_to_medium_dense,
     medium_dense,
+    medium_dense_to_dense,
     dense,
     very_dense,
 
@@ -80,7 +82,9 @@ pub const Density = enum {
 
         if (std.mem.eql(u8, lower, "very loose")) return .very_loose;
         if (std.mem.eql(u8, lower, "loose")) return .loose;
+        if (std.mem.eql(u8, lower, "loose to medium dense")) return .loose_to_medium_dense;
         if (std.mem.eql(u8, lower, "medium dense")) return .medium_dense;
+        if (std.mem.eql(u8, lower, "medium dense to dense")) return .medium_dense_to_dense;
         if (std.mem.eql(u8, lower, "dense")) return .dense;
         if (std.mem.eql(u8, lower, "very dense")) return .very_dense;
 
@@ -91,7 +95,9 @@ pub const Density = enum {
         return switch (self) {
             .very_loose => "very loose",
             .loose => "loose",
+            .loose_to_medium_dense => "loose to medium dense",
             .medium_dense => "medium dense",
+            .medium_dense_to_dense => "medium dense to dense",
             .dense => "dense",
             .very_dense => "very dense",
         };
@@ -454,6 +460,8 @@ pub const SoilType = enum {
     silt,
     sand,
     gravel,
+    cobbles,
+    boulders,
     peat,
     organic,
 
@@ -467,6 +475,8 @@ pub const SoilType = enum {
         if (std.mem.eql(u8, lower, "silt")) return .silt;
         if (std.mem.eql(u8, lower, "sand")) return .sand;
         if (std.mem.eql(u8, lower, "gravel")) return .gravel;
+        if (std.mem.eql(u8, lower, "cobbles")) return .cobbles;
+        if (std.mem.eql(u8, lower, "boulders")) return .boulders;
         if (std.mem.eql(u8, lower, "peat")) return .peat;
         if (std.mem.eql(u8, lower, "organic")) return .organic;
 
@@ -479,6 +489,8 @@ pub const SoilType = enum {
             .silt => "SILT",
             .sand => "SAND",
             .gravel => "GRAVEL",
+            .cobbles => "COBBLES",
+            .boulders => "BOULDERS",
             .peat => "PEAT",
             .organic => "ORGANIC",
         };
@@ -489,7 +501,7 @@ pub const SoilType = enum {
     }
 
     pub fn isGranular(self: SoilType) bool {
-        return self == .sand or self == .gravel;
+        return self == .sand or self == .gravel or self == .cobbles or self == .boulders;
     }
 };
 
@@ -544,6 +556,10 @@ pub const SoilDescription = struct {
     density: ?Density = null,
     secondary_constituents: []SecondaryConstituent = &[_]SecondaryConstituent{},
     primary_soil_type: ?SoilType = null,
+    secondary_primary_soil_type: ?SoilType = null,
+    geological_formation: ?[]const u8 = null,
+    is_made_ground: bool = false,
+    made_ground_label: ?[]const u8 = null,
     // Rock properties
     rock_strength: ?RockStrength = null,
     weathering_grade: ?WeatheringGrade = null,
@@ -567,7 +583,13 @@ pub const SoilDescription = struct {
 
     pub fn deinit(self: SoilDescription, allocator: std.mem.Allocator) void {
         allocator.free(self.raw_description);
+        for (self.secondary_constituents) |sc| {
+            allocator.free(sc.amount);
+            allocator.free(sc.soil_type);
+        }
         allocator.free(self.secondary_constituents);
+        if (self.geological_formation) |formation| allocator.free(formation);
+        if (self.made_ground_label) |label| allocator.free(label);
 
         // Free warning strings
         for (self.warnings) |warning| {
@@ -607,6 +629,18 @@ pub const SoilDescription = struct {
 
         if (self.primary_soil_type) |pst| {
             try writer.print(",\"primary_soil_type\":\"{s}\"", .{pst.toString()});
+        }
+        if (self.secondary_primary_soil_type) |spst| {
+            try writer.print(",\"secondary_primary_soil_type\":\"{s}\"", .{spst.toString()});
+        }
+        if (self.geological_formation) |formation| {
+            try writer.print(",\"geological_formation\":\"{s}\"", .{formation});
+        }
+        if (self.is_made_ground) {
+            try writer.writeAll(",\"is_made_ground\":true");
+        }
+        if (self.made_ground_label) |label| {
+            try writer.print(",\"made_ground_label\":\"{s}\"", .{label});
         }
 
         if (self.rock_strength) |rs| {
@@ -716,6 +750,18 @@ pub const SoilDescription = struct {
         if (self.primary_soil_type) |pst| {
             try writer.print(",\n  \"primary_soil_type\": \"{s}\"", .{pst.toString()});
         }
+        if (self.secondary_primary_soil_type) |spst| {
+            try writer.print(",\n  \"secondary_primary_soil_type\": \"{s}\"", .{spst.toString()});
+        }
+        if (self.geological_formation) |formation| {
+            try writer.print(",\n  \"geological_formation\": \"{s}\"", .{formation});
+        }
+        if (self.is_made_ground) {
+            try writer.writeAll(",\n  \"is_made_ground\": true");
+        }
+        if (self.made_ground_label) |label| {
+            try writer.print(",\n  \"made_ground_label\": \"{s}\"", .{label});
+        }
 
         if (self.rock_strength) |rs| {
             try writer.print(",\n  \"rock_strength\": \"{s}\"", .{rs.toString()});
@@ -804,7 +850,7 @@ pub const SoilDescription = struct {
         return result.toOwnedSlice();
     }
 
-    pub fn toColorizedJson(self: SoilDescription, allocator: std.mem.Allocator, use_colors: bool) ![]u8 {
+    pub fn toColouredTerminal(self: SoilDescription, allocator: std.mem.Allocator, use_colors: bool) ![]u8 {
         if (!use_colors) {
             return self.toPrettyJson(allocator);
         }
@@ -926,6 +972,10 @@ pub const SoilDescription = struct {
         return result.toOwnedSlice();
     }
 
+    pub fn toColorizedJson(self: SoilDescription, allocator: std.mem.Allocator, use_colors: bool) ![]u8 {
+        return self.toColouredTerminal(allocator, use_colors);
+    }
+
     /// Parse a SoilDescription from JSON string
     pub fn fromJson(json_str: []const u8, allocator: std.mem.Allocator) !SoilDescription {
         // Parse JSON using std.json
@@ -983,6 +1033,22 @@ pub const SoilDescription = struct {
         if (obj.get("primary_soil_type")) |pst| {
             if (pst != .string) return error.InvalidJson;
             desc.primary_soil_type = SoilType.fromString(pst.string);
+        }
+        if (obj.get("secondary_primary_soil_type")) |spst| {
+            if (spst != .string) return error.InvalidJson;
+            desc.secondary_primary_soil_type = SoilType.fromString(spst.string);
+        }
+        if (obj.get("geological_formation")) |formation| {
+            if (formation != .string) return error.InvalidJson;
+            desc.geological_formation = try allocator.dupe(u8, formation.string);
+        }
+        if (obj.get("is_made_ground")) |is_made_ground| {
+            if (is_made_ground != .bool) return error.InvalidJson;
+            desc.is_made_ground = is_made_ground.bool;
+        }
+        if (obj.get("made_ground_label")) |label| {
+            if (label != .string) return error.InvalidJson;
+            desc.made_ground_label = try allocator.dupe(u8, label.string);
         }
 
         // Parse rock properties

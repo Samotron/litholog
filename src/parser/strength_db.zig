@@ -77,7 +77,9 @@ const COHESIVE_STRENGTH_DB = std.EnumMap(Consistency, StrengthRange).init(.{
 const GRANULAR_STRENGTH_DB = std.EnumMap(Density, StrengthRange).init(.{
     .very_loose = StrengthRange{ .lower_bound = 0, .upper_bound = 4, .typical_value = 2 },
     .loose = StrengthRange{ .lower_bound = 4, .upper_bound = 10, .typical_value = 7 },
+    .loose_to_medium_dense = StrengthRange{ .lower_bound = 4, .upper_bound = 30, .typical_value = 17 },
     .medium_dense = StrengthRange{ .lower_bound = 10, .upper_bound = 30, .typical_value = 20 },
+    .medium_dense_to_dense = StrengthRange{ .lower_bound = 10, .upper_bound = 50, .typical_value = 30 },
     .dense = StrengthRange{ .lower_bound = 30, .upper_bound = 50, .typical_value = 40 },
     .very_dense = StrengthRange{ .lower_bound = 50, .upper_bound = 100, .typical_value = 75 },
 });

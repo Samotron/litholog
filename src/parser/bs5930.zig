@@ -68,8 +68,14 @@ pub const Parser = struct {
     pub fn parse(self: *Parser, description: []const u8) !SoilDescription {
         // Clone the description to avoid memory issues
         const owned_description = try self.allocator.dupe(u8, description);
+        var preprocessed = try self.preprocessDescription(description);
+        defer {
+            self.allocator.free(preprocessed.parse_text);
+            if (preprocessed.geological_formation) |formation| self.allocator.free(formation);
+            if (preprocessed.made_ground_label) |label| self.allocator.free(label);
+        }
 
-        var lex = Lexer.init(self.allocator, description);
+        var lex = Lexer.init(self.allocator, preprocessed.parse_text);
         defer lex.deinit();
 
         const tokens = try lex.tokenize();
@@ -93,6 +99,15 @@ pub const Parser = struct {
         };
 
         result = try self.parseTokens(tokens, result);
+        result.is_made_ground = preprocessed.is_made_ground;
+        if (preprocessed.geological_formation) |formation| {
+            result.geological_formation = formation;
+            preprocessed.geological_formation = null;
+        }
+        if (preprocessed.made_ground_label) |label| {
+            result.made_ground_label = label;
+            preprocessed.made_ground_label = null;
+        }
 
         // Validate the parsed description
         var validator = Validator.init(self.allocator);
@@ -206,7 +221,10 @@ pub const Parser = struct {
                         const next_token = tokens[i + 1];
                         if (next_token.type == .adjective or next_token.type == .soil_type) {
                             if (self.parseSecondaryConstituent(tokens, i)) |sc_result| {
-                                try secondary_constituents.append(sc_result.constituent);
+                                try secondary_constituents.append(SecondaryConstituent{
+                                    .amount = try self.allocator.dupe(u8, sc_result.constituent.amount),
+                                    .soil_type = try self.allocator.dupe(u8, sc_result.constituent.soil_type),
+                                });
                                 i += sc_result.tokens_consumed;
                                 continue;
                             }
@@ -216,14 +234,21 @@ pub const Parser = struct {
                 },
                 .adjective => {
                     if (self.parseStandaloneSecondaryConstituent(token.value)) |constituent| {
-                        try secondary_constituents.append(constituent);
+                        try secondary_constituents.append(SecondaryConstituent{
+                            .amount = try self.allocator.dupe(u8, constituent.amount),
+                            .soil_type = try self.allocator.dupe(u8, constituent.soil_type),
+                        });
                     }
                     i += 1;
                 },
                 .soil_type => {
-                    if (parsed.material_type == .soil and parsed.primary_soil_type == null) {
+                    if (parsed.material_type == .soil) {
                         if (SoilType.fromString(token.value)) |soil_type| {
-                            parsed.primary_soil_type = soil_type;
+                            if (parsed.primary_soil_type == null) {
+                                parsed.primary_soil_type = soil_type;
+                            } else if (parsed.secondary_primary_soil_type == null and i > 0 and tokens[i - 1].type == .word and std.ascii.eqlIgnoreCase(tokens[i - 1].value, "and")) {
+                                parsed.secondary_primary_soil_type = soil_type;
+                            }
                         }
                     }
                     i += 1;
@@ -372,6 +397,73 @@ pub const Parser = struct {
         }
 
         return null;
+    }
+
+    const PreprocessedDescription = struct {
+        parse_text: []u8,
+        geological_formation: ?[]u8 = null,
+        is_made_ground: bool = false,
+        made_ground_label: ?[]u8 = null,
+    };
+
+    fn preprocessDescription(self: *Parser, description: []const u8) !PreprocessedDescription {
+        var working = std.mem.trim(u8, description, " \t\r\n");
+        var is_made_ground = false;
+        var made_ground_label: ?[]u8 = null;
+
+        if (startsWithIgnoreCase(working, "MADE GROUND")) {
+            is_made_ground = true;
+            made_ground_label = try self.allocator.dupe(u8, "MADE GROUND");
+            working = std.mem.trimLeft(u8, working["MADE GROUND".len..], " :-\t");
+        } else if (startsWithIgnoreCase(working, "FILL")) {
+            is_made_ground = true;
+            made_ground_label = try self.allocator.dupe(u8, "FILL");
+            working = std.mem.trimLeft(u8, working["FILL".len..], " :-\t");
+        } else if (startsWithIgnoreCase(working, "TOPSOIL")) {
+            is_made_ground = true;
+            made_ground_label = try self.allocator.dupe(u8, "TOPSOIL");
+            working = std.mem.trimLeft(u8, working["TOPSOIL".len..], " :-\t");
+        }
+
+        var geological_formation: ?[]u8 = null;
+        if (working.len > 2 and working[working.len - 1] == ')') {
+            var depth: usize = 0;
+            var start_idx: ?usize = null;
+            var idx = working.len;
+            while (idx > 0) {
+                idx -= 1;
+                const ch = working[idx];
+                if (ch == ')') {
+                    depth += 1;
+                } else if (ch == '(' and depth > 0) {
+                    depth -= 1;
+                    if (depth == 0) {
+                        start_idx = idx;
+                        break;
+                    }
+                }
+            }
+
+            if (start_idx) |start| {
+                const formation = std.mem.trim(u8, working[start + 1 .. working.len - 1], " \t");
+                if (formation.len > 0) {
+                    geological_formation = try self.allocator.dupe(u8, formation);
+                    working = std.mem.trim(u8, working[0..start], " \t");
+                }
+            }
+        }
+
+        return PreprocessedDescription{
+            .parse_text = try self.allocator.dupe(u8, working),
+            .geological_formation = geological_formation,
+            .is_made_ground = is_made_ground,
+            .made_ground_label = made_ground_label,
+        };
+    }
+
+    fn startsWithIgnoreCase(haystack: []const u8, prefix: []const u8) bool {
+        if (haystack.len < prefix.len) return false;
+        return std.ascii.eqlIgnoreCase(haystack[0..prefix.len], prefix);
     }
 };
 
@@ -626,4 +718,40 @@ test "parse complex soil with constituent guidance" {
     try std.testing.expect(found_clay);
     try std.testing.expect(found_sandy);
     try std.testing.expect(found_gravelly);
+}
+
+test "parse geological formation suffix" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("Firm closely fissured yellowish brown CLAY (LONDON CLAY FORMATION)");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.primary_soil_type.? == .clay);
+    try std.testing.expect(result.geological_formation != null);
+    try std.testing.expect(std.mem.eql(u8, result.geological_formation.?, "LONDON CLAY FORMATION"));
+}
+
+test "parse compound primary soil types" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("Dense brown SAND and GRAVEL");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.primary_soil_type.? == .sand);
+    try std.testing.expect(result.secondary_primary_soil_type.? == .gravel);
+}
+
+test "parse made ground prefix and density range" {
+    const allocator = std.testing.allocator;
+    var parser = Parser.init(allocator);
+
+    const result = try parser.parse("MADE GROUND: medium dense to dense brown sandy GRAVEL");
+    defer result.deinit(allocator);
+
+    try std.testing.expect(result.is_made_ground);
+    try std.testing.expect(result.made_ground_label != null);
+    try std.testing.expect(result.density.? == .medium_dense_to_dense);
+    try std.testing.expect(result.primary_soil_type.? == .gravel);
 }

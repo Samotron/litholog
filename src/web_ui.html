@@ -538,6 +538,7 @@
             <button class="tab active" onclick="switchTab('single')">Single Description</button>
             <button class="tab" onclick="switchTab('batch')">Batch Processing</button>
             <button class="tab" onclick="switchTab('csv')">CSV Upload</button>
+            <button class="tab" onclick="switchTab('ags')">AGS Inspector</button>
             <button class="tab" onclick="switchTab('about')">About</button>
         </div>
 
@@ -613,6 +614,51 @@
             </div>
         </div>
 
+        <!-- AGS Inspector Tab -->
+        <div id="ags" class="tab-content">
+            <div class="card">
+                <div class="card-title">AGS Inspector</div>
+                <div class="info-box">
+                    <p>Upload an AGS file to browse boreholes, view SVG logs, inspect parsed strata, and download outputs.</p>
+                </div>
+                <div class="form-group">
+                    <label for="agsFile">AGS file:</label>
+                    <input type="file" id="agsFile" accept=".ags,.txt" onchange="handleAgsUpload(event)">
+                </div>
+                <div class="button-group">
+                    <button onclick="downloadEnhancedAgs()">Download Enhanced AGS</button>
+                    <button class="button-secondary" onclick="downloadSelectedSvg()">Download Selected SVG</button>
+                    <button class="button-secondary" onclick="downloadAllSvgs()">Download All SVGs</button>
+                </div>
+                <div id="agsStatus"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Boreholes</div>
+                <div id="agsBoreholes"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">SVG Viewer</div>
+                <div id="agsViewer" style="overflow:auto; border:1px solid var(--border); border-radius:var(--radius-md); min-height:360px; background:var(--bg-base); padding:0.5rem;"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Parse Details</div>
+                <pre id="agsDetails" style="white-space:pre-wrap; font-size:0.82rem; background:var(--bg-base); border:1px solid var(--border); border-radius:var(--radius-md); padding:1rem; max-height:320px; overflow:auto;"></pre>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Site Plan</div>
+                <svg id="agsSitePlan" width="100%" height="260" viewBox="0 0 600 260" style="border:1px solid var(--border); border-radius:var(--radius-md); background:#fff;"></svg>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Anomaly Summary</div>
+                <div id="agsAnomalies"></div>
+            </div>
+        </div>
+
         <!-- About Tab -->
         <div id="about" class="tab-content">
             <div class="card">
@@ -655,6 +701,8 @@
         let csvData = null;
         let csvHeaders = [];
         let selectedColumn = null;
+        let agsBoreholes = [];
+        let selectedBoreholeId = null;
 
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -1010,6 +1058,162 @@
             selectedColumn = null;
             document.getElementById('csvPreview').innerHTML = '';
             document.getElementById('csvFile').value = '';
+        }
+
+        async function handleAgsUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const status = document.getElementById('agsStatus');
+            status.innerHTML = '<div class="alert info">Uploading and parsing AGS...</div>';
+
+            try {
+                const content = await file.text();
+                const response = await fetch('/api/ags/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: file.name, content })
+                });
+                if (!response.ok) throw new Error('Upload failed');
+
+                const result = await response.json();
+                status.innerHTML = `<div class="alert success">✓ Loaded ${result.filename}: ${result.locations} boreholes, ${result.strata} strata</div>`;
+                await loadAgsBoreholes();
+            } catch (error) {
+                status.innerHTML = `<div class="alert error">⚠️ ${error.message}</div>`;
+            }
+        }
+
+        async function loadAgsBoreholes() {
+            const list = document.getElementById('agsBoreholes');
+            try {
+                const response = await fetch('/api/ags/boreholes');
+                if (!response.ok) throw new Error('No AGS file uploaded');
+                const result = await response.json();
+                agsBoreholes = result.boreholes || [];
+
+                if (agsBoreholes.length === 0) {
+                    list.innerHTML = '<div class="alert info">No boreholes found.</div>';
+                    return;
+                }
+
+                let html = '<div class="examples">';
+                agsBoreholes.forEach(b => {
+                    html += `<button class="example-btn" onclick="selectBorehole('${b.id}')">${b.id} — GL ${Number(b.ground_level).toFixed(2)} m</button>`;
+                });
+                html += '</div>';
+                list.innerHTML = html;
+
+                renderSitePlan(null);
+                await selectBorehole(agsBoreholes[0].id);
+            } catch (error) {
+                list.innerHTML = `<div class="alert error">⚠️ ${error.message}</div>`;
+            }
+        }
+
+        async function selectBorehole(id) {
+            selectedBoreholeId = id;
+            const viewer = document.getElementById('agsViewer');
+            const details = document.getElementById('agsDetails');
+            const anomalies = document.getElementById('agsAnomalies');
+
+            try {
+                const [svgResponse, jsonResponse] = await Promise.all([
+                    fetch(`/api/ags/log/${encodeURIComponent(id)}`),
+                    fetch(`/api/ags/log/${encodeURIComponent(id)}/json`)
+                ]);
+                if (!svgResponse.ok || !jsonResponse.ok) throw new Error('Could not load borehole');
+
+                const svgText = await svgResponse.text();
+                const jsonData = await jsonResponse.json();
+
+                viewer.innerHTML = svgText;
+                details.textContent = JSON.stringify(jsonData, null, 2);
+
+                const warningRows = [];
+                (jsonData.strata || []).forEach(s => {
+                    const warnings = (s.parsed && s.parsed.warnings) ? s.parsed.warnings : [];
+                    warnings.forEach(w => warningRows.push({ depth: `${s.depth_top}-${s.depth_base}m`, warning: w }));
+                });
+                if (warningRows.length === 0) {
+                    anomalies.innerHTML = '<div class="alert success">✓ No anomalies for selected borehole.</div>';
+                } else {
+                    let html = '<div class="csv-preview"><table><thead><tr><th>Depth</th><th>Warning</th></tr></thead><tbody>';
+                    warningRows.forEach(r => { html += `<tr><td>${r.depth}</td><td>${r.warning}</td></tr>`; });
+                    html += '</tbody></table></div>';
+                    anomalies.innerHTML = html;
+                }
+
+                renderSitePlan(id);
+            } catch (error) {
+                viewer.innerHTML = `<div class="alert error">⚠️ ${error.message}</div>`;
+                details.textContent = '';
+                anomalies.innerHTML = '';
+            }
+        }
+
+        function renderSitePlan(selectedId) {
+            const svg = document.getElementById('agsSitePlan');
+            if (!svg) return;
+            const points = agsBoreholes.filter(b => Number.isFinite(Number(b.easting)) && Number.isFinite(Number(b.northing)));
+            if (points.length === 0) {
+                svg.innerHTML = '<text x="20" y="30" font-size="14" fill="#666">No coordinate data available.</text>';
+                return;
+            }
+
+            const minE = Math.min(...points.map(p => Number(p.easting)));
+            const maxE = Math.max(...points.map(p => Number(p.easting)));
+            const minN = Math.min(...points.map(p => Number(p.northing)));
+            const maxN = Math.max(...points.map(p => Number(p.northing)));
+            const pad = 30;
+            const width = 600 - (pad * 2);
+            const height = 260 - (pad * 2);
+            const scaleE = (maxE - minE) === 0 ? 1 : width / (maxE - minE);
+            const scaleN = (maxN - minN) === 0 ? 1 : height / (maxN - minN);
+
+            let content = `<rect x="0" y="0" width="600" height="260" fill="#fff" stroke="#ddd"/>`;
+            points.forEach(p => {
+                const x = pad + (Number(p.easting) - minE) * scaleE;
+                const y = 260 - pad - (Number(p.northing) - minN) * scaleN;
+                const active = (selectedId && p.id === selectedId) ? '#dc2626' : '#1d4ed8';
+                const radius = (selectedId && p.id === selectedId) ? 6 : 4;
+                content += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius}" fill="${active}"/>`;
+                content += `<text x="${(x + 8).toFixed(1)}" y="${(y + 4).toFixed(1)}" font-size="10" fill="#333">${p.id}</text>`;
+            });
+            svg.innerHTML = content;
+        }
+
+        function downloadEnhancedAgs() {
+            window.open('/api/ags/enhanced', '_blank');
+        }
+
+        function downloadSelectedSvg() {
+            if (!selectedBoreholeId) {
+                alert('Select a borehole first');
+                return;
+            }
+            window.open(`/api/ags/svg/${encodeURIComponent(selectedBoreholeId)}`, '_blank');
+        }
+
+        async function downloadAllSvgs() {
+            try {
+                const response = await fetch('/api/ags/svg/all', { method: 'POST' });
+                if (!response.ok) throw new Error('Download failed');
+                const result = await response.json();
+                const files = result.files || [];
+                if (files.length === 0) throw new Error('No SVG files available');
+
+                files.forEach(file => {
+                    const blob = new Blob([file.svg], { type: 'image/svg+xml' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = file.filename || `${file.id}.svg`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                });
+            } catch (error) {
+                alert(error.message);
+            }
         }
 
         // Drag and drop support

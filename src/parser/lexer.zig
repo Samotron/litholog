@@ -128,6 +128,8 @@ pub const Lexer = struct {
             // Soil patterns
             .{ .pattern = "very soft", .token_type = .consistency },
             .{ .pattern = "very stiff", .token_type = .consistency },
+            .{ .pattern = "medium dense to dense", .token_type = .density },
+            .{ .pattern = "loose to medium dense", .token_type = .density },
             .{ .pattern = "very loose", .token_type = .density },
             .{ .pattern = "very dense", .token_type = .density },
             .{ .pattern = "medium dense", .token_type = .density },
@@ -358,7 +360,7 @@ pub const Lexer = struct {
         }
 
         // Soil types
-        const soil_types = [_][]const u8{ "clay", "silt", "sand", "gravel", "peat", "organic" };
+        const soil_types = [_][]const u8{ "clay", "silt", "sand", "gravel", "cobbles", "boulders", "peat", "organic" };
         for (soil_types) |st| {
             if (std.mem.eql(u8, lower, st)) return .{ .token_type = .soil_type };
         }
@@ -413,7 +415,7 @@ pub const Lexer = struct {
             .{ .terms = &[_][]const u8{ "fresh", "weathered" }, .token_type = .weathering_grade },
             .{ .terms = &[_][]const u8{ "massive", "bedded", "jointed", "fractured", "foliated", "laminated" }, .token_type = .rock_structure },
             .{ .terms = &[_][]const u8{ "slightly", "moderately", "very" }, .token_type = .proportion },
-            .{ .terms = &[_][]const u8{ "clay", "silt", "sand", "gravel", "peat", "organic" }, .token_type = .soil_type },
+            .{ .terms = &[_][]const u8{ "clay", "silt", "sand", "gravel", "cobbles", "boulders", "peat", "organic" }, .token_type = .soil_type },
             .{ .terms = &[_][]const u8{ "limestone", "sandstone", "mudstone", "shale", "granite", "basalt", "chalk", "dolomite", "quartzite", "slate", "schist", "gneiss", "marble", "conglomerate", "breccia" }, .token_type = .rock_type },
             .{ .terms = &[_][]const u8{ "sandy", "silty", "clayey", "gravelly" }, .token_type = .adjective },
             .{ .terms = &[_][]const u8{ "gray", "grey", "brown", "red", "yellow", "orange", "black", "white", "green", "blue", "pink", "purple", "tan", "buff" }, .token_type = .color },

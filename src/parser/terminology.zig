@@ -99,7 +99,6 @@ pub fn normalizeSpelling(allocator: std.mem.Allocator, input: []const u8) ![]u8 
 
     // Handle common UK/US spelling variations
     const variations = [_]struct { from: []const u8, to: []const u8 }{
-        .{ .from = "grey", .to = "gray" },
         .{ .from = "colour", .to = "color" },
     };
 

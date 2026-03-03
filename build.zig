@@ -143,6 +143,35 @@ pub fn build(b: *std.Build) void {
     const test_integration_step = b.step("test-integration", "Run integration tests");
     test_integration_step.dependOn(&run_integration_tests.step);
 
+    const ags_reader_unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/ags_reader.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const run_ags_reader_unit_tests = b.addRunArtifact(ags_reader_unit_tests);
+
+    const ags_validator_unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/ags_validator.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const run_ags_validator_unit_tests = b.addRunArtifact(ags_validator_unit_tests);
+
+    const ags_writer_unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/ags_writer.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const run_ags_writer_unit_tests = b.addRunArtifact(ags_writer_unit_tests);
+
+    const svg_renderer_unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/svg_renderer.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const run_svg_renderer_unit_tests = b.addRunArtifact(svg_renderer_unit_tests);
+
+
     // Original parser tests
     const lib_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/parser/bs5930.zig"),
@@ -172,6 +201,10 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_anomaly_tests.step);
     test_step.dependOn(&run_integration_tests.step);
     test_step.dependOn(&run_lib_unit_tests.step);
+    test_step.dependOn(&run_ags_reader_unit_tests.step);
+    test_step.dependOn(&run_ags_validator_unit_tests.step);
+    test_step.dependOn(&run_ags_writer_unit_tests.step);
+    test_step.dependOn(&run_svg_renderer_unit_tests.step);
 
     // Demo executables
     const demo_spatial = b.addExecutable(.{

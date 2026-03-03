@@ -41,32 +41,6 @@ pub const ConstituentGuidance = struct {
     }
 };
 
-// BS5930 proportion ranges based on descriptive terms
-const PROPORTION_RANGES = std.StringHashMap(ProportionRange).init(std.heap.page_allocator);
-
-fn initProportionRanges() std.StringHashMap(ProportionRange) {
-    var ranges = std.StringHashMap(ProportionRange).init(std.heap.page_allocator);
-
-    // BS5930 standard proportion ranges
-    ranges.put("slightly", ProportionRange{ .lower_bound = 5, .upper_bound = 12, .typical_value = 8 }) catch unreachable;
-    ranges.put("moderately", ProportionRange{ .lower_bound = 12, .upper_bound = 35, .typical_value = 20 }) catch unreachable;
-    ranges.put("very", ProportionRange{ .lower_bound = 35, .upper_bound = 65, .typical_value = 50 }) catch unreachable;
-
-    return ranges;
-}
-
-// Lazy initialization of proportion ranges
-var proportion_ranges_init = false;
-var proportion_ranges: std.StringHashMap(ProportionRange) = undefined;
-
-fn getProportionRanges() *std.StringHashMap(ProportionRange) {
-    if (!proportion_ranges_init) {
-        proportion_ranges = initProportionRanges();
-        proportion_ranges_init = true;
-    }
-    return &proportion_ranges;
-}
-
 pub const ConstituentDatabase = struct {
     pub fn getConstituentGuidance(
         allocator: std.mem.Allocator,
@@ -110,6 +84,8 @@ pub const ConstituentDatabase = struct {
                 .silt => "silt",
                 .sand => "sand",
                 .gravel => "gravel",
+                .cobbles => "cobbles",
+                .boulders => "boulders",
                 .peat => "peat",
                 .organic => "organic",
             };
@@ -131,8 +107,16 @@ pub const ConstituentDatabase = struct {
     }
 
     fn getProportionRange(amount_str: []const u8) ?ProportionRange {
-        const ranges = getProportionRanges();
-        return ranges.get(amount_str);
+        if (std.mem.eql(u8, amount_str, "slightly")) {
+            return ProportionRange{ .lower_bound = 5, .upper_bound = 12, .typical_value = 8 };
+        }
+        if (std.mem.eql(u8, amount_str, "moderately")) {
+            return ProportionRange{ .lower_bound = 12, .upper_bound = 35, .typical_value = 20 };
+        }
+        if (std.mem.eql(u8, amount_str, "very")) {
+            return ProportionRange{ .lower_bound = 35, .upper_bound = 65, .typical_value = 50 };
+        }
+        return null;
     }
 
     fn calculateConfidence(num_constituents: usize) f32 {
