@@ -29,3 +29,9 @@ jobs:
 
     - name: Build library
       run: zig build lib
+
+    - name: Build WASM module
+      run: zig build wasm
+
+    - name: Run WASM smoke test
+      run: node tests/wasm_smoke.mjs

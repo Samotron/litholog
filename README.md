@@ -50,6 +50,20 @@ The web interface provides:
 - Works on any device - desktop, tablet, or mobile
 - No installation or configuration needed - 100% local processing
 
+### GitHub Pages WASM Demo
+
+Litholog now includes a static GitHub Pages demo in `docs/` that runs the parser in-browser via WebAssembly (no hosted API required).
+
+```bash
+# Build WASM module
+zig build wasm
+
+# Copy artifact into docs/ for local preview or Pages publishing
+cp zig-out/bin/litholog-wasm.wasm docs/litholog.wasm
+```
+
+Then open `docs/index.html` with a static server (for example `python -m http.server`) and navigate to the served `docs/` path.
+
 ### CLI Tool
 
 ```bash

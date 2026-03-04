@@ -4,6 +4,10 @@ const version = @import("src/version.zig");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const wasm_target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .freestanding,
+    });
 
     // Main executable
     const exe = b.addExecutable(.{
@@ -243,4 +247,18 @@ pub fn build(b: *std.Build) void {
     const demo_clustering_run = b.addRunArtifact(demo_clustering);
     const demo_clustering_step = b.step("demo-clustering", "Run clustering quality metrics demo");
     demo_clustering_step.dependOn(&demo_clustering_run.step);
+
+    // WASM module for GitHub Pages demo
+    const wasm_exe = b.addExecutable(.{
+        .name = "litholog-wasm",
+        .root_source_file = b.path("src/wasm.zig"),
+        .target = wasm_target,
+        .optimize = .ReleaseSmall,
+    });
+    wasm_exe.entry = .disabled;
+    wasm_exe.rdynamic = true;
+    const install_wasm = b.addInstallArtifact(wasm_exe, .{});
+
+    const wasm_step = b.step("wasm", "Build the WASM parser module");
+    wasm_step.dependOn(&install_wasm.step);
 }

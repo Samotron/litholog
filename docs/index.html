@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Litholog WASM Demo</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #fafaf9; color: #1c1917; }
+        header { background: linear-gradient(135deg, #1e3a8a, #1d4ed8); color: #fff; padding: 1.5rem; }
+        main { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+        .card { background: #fff; border: 1px solid #e7e5e4; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+        textarea, select, input { width: 100%; padding: 0.7rem; border: 1px solid #d6d3d1; border-radius: 8px; margin-top: 0.5rem; box-sizing: border-box; }
+        button { background: #1d4ed8; color: #fff; border: 0; border-radius: 8px; padding: 0.6rem 1rem; cursor: pointer; margin-top: 0.75rem; }
+        button:disabled { opacity: 0.6; cursor: wait; }
+        pre { background: #f5f5f4; padding: 0.75rem; border-radius: 8px; overflow: auto; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+        .ok { background: #d1fae5; color: #065f46; }
+        .warn { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Litholog WASM Demo</h1>
+        <p>GitHub Pages static demo with in-browser parsing.</p>
+        <p>Status: <span id="status" class="badge warn">Loading WASM…</span></p>
+    </header>
+    <main>
+        <div class="card">
+            <h2>Single parse</h2>
+            <textarea id="singleInput">Firm to stiff slightly sandy gravelly CLAY</textarea>
+            <button id="singleBtn">Parse Description</button>
+            <pre id="singleOut"></pre>
+        </div>
+
+        <div class="card">
+            <h2>Batch parse</h2>
+            <textarea id="batchInput">Firm CLAY
+Dense SAND
+Strong LIMESTONE</textarea>
+            <button id="batchBtn">Parse Batch</button>
+            <button id="downloadBtn" disabled>Download JSON</button>
+            <pre id="batchOut"></pre>
+        </div>
+
+        <div class="card">
+            <h2>CSV workflow</h2>
+            <input type="file" id="csvFile" accept=".csv">
+            <label for="columnSelect">Description column</label>
+            <select id="columnSelect"></select>
+            <button id="csvBtn" disabled>Process CSV</button>
+            <pre id="csvOut"></pre>
+        </div>
+    </main>
+
+    <script type="module">
+        import { LithologWasm } from "./wasm.js";
+
+        let litholog = null;
+        let batchResults = [];
+        let csvRows = [];
+        let headers = [];
+
+        const statusEl = document.getElementById("status");
+        const singleOut = document.getElementById("singleOut");
+        const batchOut = document.getElementById("batchOut");
+        const csvOut = document.getElementById("csvOut");
+
+        const setStatus = (ok, text) => {
+            statusEl.textContent = text;
+            statusEl.className = `badge ${ok ? "ok" : "warn"}`;
+        };
+
+        const parseLines = (text) => text.split("\n").map((v) => v.trim()).filter(Boolean);
+        const parseCsvLine = (line) => line.split(",").map((v) => v.replace(/^"|"$/g, "").trim());
+        const toCsv = (rows) => rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+
+        try {
+            litholog = await LithologWasm.init();
+            setStatus(true, "WASM ready");
+        } catch (err) {
+            setStatus(false, "WASM failed to load");
+            singleOut.textContent = String(err);
+        }
+
+        document.getElementById("singleBtn").onclick = () => {
+            try {
+                const result = litholog.parse(document.getElementById("singleInput").value.trim());
+                singleOut.textContent = JSON.stringify(result, null, 2);
+            } catch (err) {
+                singleOut.textContent = String(err);
+            }
+        };
+
+        document.getElementById("batchBtn").onclick = () => {
+            try {
+                batchResults = parseLines(document.getElementById("batchInput").value).map((d) => ({ description: d, parsed: litholog.parse(d) }));
+                batchOut.textContent = JSON.stringify(batchResults, null, 2);
+                document.getElementById("downloadBtn").disabled = batchResults.length === 0;
+            } catch (err) {
+                batchOut.textContent = String(err);
+            }
+        };
+
+        document.getElementById("downloadBtn").onclick = () => {
+            const blob = new Blob([JSON.stringify(batchResults, null, 2)], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `litholog-batch-${Date.now()}.json`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        };
+
+        document.getElementById("csvFile").onchange = async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const text = await file.text();
+            const lines = text.split(/\r?\n/).filter(Boolean);
+            headers = parseCsvLine(lines[0] || "");
+            csvRows = lines.slice(1).map(parseCsvLine);
+
+            const select = document.getElementById("columnSelect");
+            select.innerHTML = headers.map((h, i) => `<option value="${i}">${h || `Column ${i + 1}`}</option>`).join("");
+            document.getElementById("csvBtn").disabled = headers.length === 0;
+            csvOut.textContent = `Loaded ${file.name} (${csvRows.length} rows)`;
+        };
+
+        document.getElementById("csvBtn").onclick = () => {
+            try {
+                const col = Number(document.getElementById("columnSelect").value);
+                const outHeaders = [...headers, "material_type", "consistency", "density", "primary_soil_type", "primary_rock_type", "rock_strength", "confidence"];
+                const outRows = csvRows.map((row) => {
+                    const desc = row[col] || "";
+                    const parsed = desc ? litholog.parse(desc) : {};
+                    return [
+                        ...row,
+                        parsed.material_type || "",
+                        parsed.consistency || "",
+                        parsed.density || "",
+                        parsed.primary_soil_type || "",
+                        parsed.primary_rock_type || "",
+                        parsed.rock_strength || "",
+                        parsed.confidence || "",
+                    ];
+                });
+
+                const blob = new Blob([`${toCsv([outHeaders, ...outRows])}\n`], { type: "text/csv" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = `litholog-processed-${Date.now()}.csv`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+                csvOut.textContent = `Processed ${outRows.length} rows`;
+            } catch (err) {
+                csvOut.textContent = String(err);
+            }
+        };
+    </script>
+</body>
+</html>
