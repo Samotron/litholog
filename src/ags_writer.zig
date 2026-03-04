@@ -39,8 +39,9 @@ pub fn writeEnhanced(allocator: std.mem.Allocator, ags: *const ags_reader.AgsFil
     if (ags.strata.len > 0) {
         try writeRow(w, &[_][]const u8{ "GROUP", "GEOL" });
         try writeRow(w, &[_][]const u8{
-            "HEADING", "LOCA_ID", "GEOL_TOP", "GEOL_BASE", "GEOL_DESC", "GEOL_LEG", "GEOL_GEOL", "GEOL_FORM",
-            "GEOL_MTYP", "GEOL_CONS", "GEOL_DENS", "GEOL_PSOL", "GEOL_PRCK", "GEOL_RSTR", "GEOL_WETH", "GEOL_CONF", "GEOL_WARN",
+            "HEADING",   "LOCA_ID",   "GEOL_TOP",  "GEOL_BASE", "GEOL_DESC", "GEOL_LEG",  "GEOL_GEOL", "GEOL_FORM",
+            "GEOL_MTYP", "GEOL_CONS", "GEOL_DENS", "GEOL_PSOL", "GEOL_PRCK", "GEOL_RSTR", "GEOL_WETH", "GEOL_CONF",
+            "GEOL_WARN",
         });
         try writeRow(w, &[_][]const u8{ "UNIT", "", "m", "m", "", "", "", "", "", "", "", "", "", "", "", "", "" });
         try writeRow(w, &[_][]const u8{ "TYPE", "ID", "2DP", "2DP", "X", "PA", "PA", "X", "X", "X", "X", "X", "X", "X", "X", "2DP", "X" });
